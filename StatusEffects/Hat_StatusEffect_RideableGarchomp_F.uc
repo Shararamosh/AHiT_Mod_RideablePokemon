@@ -1,0 +1,7 @@
+class Hat_StatusEffect_RideableGarchomp_F extends Hat_StatusEffect_RideableGarchomp_M;
+
+defaultproperties
+{
+	ScooterMesh = SkeletalMesh'RideableGarchomp_Package.models.Garchomp_Female'
+	WireframeMaterials(0) = MaterialInstanceTimeVarying'RideableGarchomp_Package.Materials.pm0445_01_BodyA_Wireframe'
+}

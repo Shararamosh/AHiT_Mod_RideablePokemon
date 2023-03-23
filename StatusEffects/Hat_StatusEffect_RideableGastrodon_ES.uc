@@ -1,0 +1,9 @@
+class Hat_StatusEffect_RideableGastrodon_ES extends Hat_StatusEffect_RideableGastrodon_WS;
+
+defaultproperties
+{
+	ScooterMesh = SkeletalMesh'RideableGastrodon_Package.models.Gastrodon_East'
+	ScooterPhysics = PhysicsAsset'RideableGastrodon_Package.Physics.Gastrodon_East_Physics'
+	WireframeMaterials(0) = MaterialInstanceTimeVarying'RideableGastrodon_Package.Materials.pm0423_12_bodya_Wireframe'
+	WireframeMaterials(1) = MaterialInstanceTimeVarying'RideableGastrodon_Package.Materials.pm0423_12_bodyb_Wireframe'
+}

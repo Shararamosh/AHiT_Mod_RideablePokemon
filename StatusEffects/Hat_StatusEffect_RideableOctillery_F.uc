@@ -1,0 +1,6 @@
+class Hat_StatusEffect_RideableOctillery_F extends Hat_StatusEffect_RideableOctillery_M;
+
+defaultproperties
+{
+	ScooterMesh = SkeletalMesh'RideableOctillery_Package.models.Octillery_Female'
+}
