@@ -3,10 +3,11 @@ class Hat_StatusEffect_RideableGogoat extends Hat_StatusEffect_RideablePokemon;
 static function BattleActionAnims GetBattleActionAnims()
 {
 	local BattleActionAnims baa;
-	baa.IdleAnims.AddItem('Idle');
-	baa.IdleAnims.AddItem('IdleCold');
-	baa.CryingAnims.AddItem('Crying');
-	baa.PhysicalAttackAnims.AddItem('Attacking');
+	baa.IdleAnims.AddItem('Battle_Idle1');
+	baa.IdleAnims.AddItem('Battle_Idle2');
+	baa.PhysicalAttackAnims.AddItem('Battle_PhysicalAttack');
+	baa.SpecialAttackAnims.AddItem('Battle_SpecialAttack2');
+	baa.TakingDamageAnims.AddItem('Battle_Damage');
 	return baa;
 }
 

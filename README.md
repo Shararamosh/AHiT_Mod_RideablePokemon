@@ -12,7 +12,7 @@ Only contents of Classes folder is available - no CompiledScripts/Content/Cooked
 - An abstract "Tools" class containing functions for handling Materials and MeshComponents.
 - An abstract "Tools" class containing functions for handling Player Pawns, their Controllers and Steamworks SteamID.
 ## Support and warranty
-I can't guarantee anything other than that the included scripts were successfully on my side in A Hat in Time Modding Tools. I also can't guarantee that I will be able to help you with your problems, but I may be able to provide support regarding these and these scripts only.
+I can't guarantee anything other than that the included scripts were successfully compiled on my side in A Hat in Time Modding Tools. I also can't guarantee that I will be able to help you with your problems, but I may be able to provide support regarding these and these scripts only.
 ## Additional contributors
 - [Gears for Breakfast](https://www.gearsforbreakfast.com) - A Hat in Time video game and all parent scripts used by this mod and not included in this repository.
 - [m_cu8](https://github.com/mcu8) - the first version of Subtitles HUD Element.

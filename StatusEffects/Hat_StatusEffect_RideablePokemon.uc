@@ -460,7 +460,6 @@ simulated function OnAdded(Actor a)
 	ply.VehicleProperties.VehicleMeshComponent = ScooterMeshComp;
 	ply.SetStepUpOffsetMesh(ScooterMeshComp);
 	ply.ResetMoveSpeed();
-	CurrentHealth = ply.Health;
 	ply.bCanBeBaseForPawns = true;
 	if (AppearParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
 		ply.Worldinfo.MyEmitterPool.SpawnEmitter(AppearParticle, ply.Location);
@@ -588,7 +587,7 @@ simulated function bool Update(float delta)
 	if (ply.Health != CurrentHealth)
 	{
 		CurrentHealth = ply.Health;
-		SetPokemonEyes();
+		SetPokemonHealth();
 	}
 	UpdateVisuals();
 	return true;
@@ -603,16 +602,6 @@ function bool OnDuck()
 	if (HonkCooldown > 0.0)
 		return true;
 	HonkCooldown = SetPokemonRandomBattleAction();
-	if (HonkCooldown > 0.0)
-	{
-		SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
-		if (HonkSound != None)
-		{
-			if (HonkParticleComponent != None)
-				HonkParticleComponent.SetActive(true);
-			Owner.PlaySound(HonkSound);
-		}
-	}
 	return true;
 }
 
@@ -883,26 +872,19 @@ simulated function OnRemoved(Actor a)
 		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"RideStop", ply, , ModInstance);
 }
 
-final simulated function SetPokemonEyes()
+final simulated function SetPokemonHealth()
 {
-	local int h;
 	local Hat_Player ply;
-	h = CurrentHealth;
+	SetPokemonHealthNumber(ScooterMeshComp, CurrentHealth);
 	ply = Hat_Player(Owner);
-	if (ModifyPokemonEyes(ScooterMeshComp, h) && ply != None)
-		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$h, ply, , ModInstance);
-	if (h < 2)
-	{
-		SetAnimNodesByNameActive(ScooterMeshComp, 'LowHealth', true);
-		if (ply != None)
-			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"LowHealth", ply, , ModInstance);
-	}
-	else
-	{
-		SetAnimNodesByNameActive(ScooterMeshComp, 'LowHealth', false);
-		if (ply != None)
-			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"HighHealth", ply, , ModInstance);
-	}
+	if (ply != None)
+		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$CurrentHealth, ply, , ModInstance);
+}
+
+final static function SetPokemonHealthNumber(SkeletalMeshComponent comp, int h)
+{
+	ModifyPokemonEyes(comp, h);
+	SetAnimNodesByNameActive(comp, 'LowHealth', h < 2);
 }
 
 final static function Name GetRandomBattleActionAnimation()
@@ -948,6 +930,13 @@ final simulated function float SetPokemonRandomBattleAction()
 	if (f <= 0.0)
 		return 0.0;
 	ModifyPokemonFace(ScooterMeshComp, true);
+	SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
+	if (HonkSound != None)
+	{
+		if (HonkParticleComponent != None)
+			HonkParticleComponent.SetActive(true);
+		Owner.PlaySound(HonkSound);
+	}
 	ScareNearbyPawns(Owner, PokemonScaresPlayers && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
 	ply = Hat_Player(Owner);
 	if (ply != None)
@@ -1143,6 +1132,7 @@ defaultproperties
 	ScooterPhysicsAssetInstance = true
 	ScooterScale = 1.0
 	ScooterScale3D = (X = 1.0, Y = 1.0, Z = 1.0)
+	CurrentHealth = 4
 	WheelStopLeftSound = None
 	WheelStopRightSound = None
 	SpeedDustParticle = None

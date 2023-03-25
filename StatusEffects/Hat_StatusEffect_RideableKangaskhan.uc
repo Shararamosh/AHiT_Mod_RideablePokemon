@@ -7,7 +7,7 @@ static function BattleActionAnims GetBattleActionAnims()
 	baa.IdleAnims.AddItem('Battle_Idle2');
 	baa.CryingAnims.AddItem('Battle_Cry');
 	baa.PhysicalAttackAnims.AddItem('Battle_PhysicalAttack');
-	baa.TakingDamageAnims.AddItem('Battle_SpecialAttack');
+	baa.SpecialAttackAnims.AddItem('Battle_SpecialAttack');
 	baa.TakingDamageAnims.AddItem('Battle_Damage');
 	return baa;
 }
