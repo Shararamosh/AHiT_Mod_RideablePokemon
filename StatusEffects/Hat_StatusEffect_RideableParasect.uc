@@ -3,12 +3,10 @@ class Hat_StatusEffect_RideableParasect extends Hat_StatusEffect_RideablePokemon
 static function BattleActionAnims GetBattleActionAnims()
 {
 	local BattleActionAnims baa;
-	baa.IdleAnims.AddItem('Idle');
-	baa.IdleAnims.AddItem('Refresh_Emotion1');
-	baa.IdleAnims.AddItem('Refresh_Emotion2');
-	baa.CryingAnims.AddItem('Attack2');
-	baa.PhysicalAttackAnims.AddItem('Attack1');
-	baa.TakingDamageAnims.AddItem('TakingHit');
+	baa.IdleAnims.AddItem('Battle_Idle');
+	baa.PhysicalAttackAnims.AddItem('Battle_PhysicalAttack');
+	baa.SpecialAttackAnims.AddItem('Battle_SpecialAttack');
+	baa.TakingDamageAnims.AddItem('Battle_Damage');
 	return baa;
 }
 
