@@ -15,13 +15,6 @@ struct BattleActionAnims
 	var Array<Name> IdleAnims, CryingAnims, PhysicalAttackAnims, SpecialAttackAnims, TakingDamageAnims;
 };
 
-struct CustomAnimationInfo
-{
-	var Name AnimName;
-	var bool looping, allow_transitions;
-	var float PlayRate, TransitionTime, AniDuration;
-};
-
 struct SavedActorProperties
 {
 	var Actor PropertiesOwner;
@@ -41,7 +34,6 @@ var protected transient RideablePokemon_Script ModInstance;
 var protected transient SavedActorProperties SavedProperties;
 var protectedwrite transient class<Hat_Collectible_Skin> CurrentSkinClass;
 var protectedwrite transient class<Hat_StatusEffect_Muddy> CurrentMuddyStatus;
-var protectedwrite transient CustomAnimationInfo LastSentAnimationInfo;
 var const RBCollisionChannelContainer ScooterCollisionContainer;
 
 static function BattleActionAnims GetBattleActionAnims()
@@ -582,7 +574,7 @@ simulated function bool Update(float delta)
 	if (ply.Physics == PHYS_Walking)
 		StartAirYaw = false;
 	if (SpeedDustParticleComponent != None)
-		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && VSize(ply.Velocity*vect(1.0, 1.0, 0.0)) > ply.GroundSpeed*0.5 && Abs(ply.VehicleProperties.Throttle) > 0.1);
+		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && VSizeSq2D(ply.Velocity) > 0.25*ply.GroundSpeed*ply.GroundSpeed && Abs(ply.VehicleProperties.Throttle) > 0.1);
 	UpdateSounds(delta);
 	if (ply.Health != CurrentHealth)
 	{
@@ -595,14 +587,7 @@ simulated function bool Update(float delta)
 
 function bool OnDuck()
 {
-	if (Owner == None)
-		return false;
-	if (Owner.Physics != PHYS_Walking)
-		return false;
-	if (HonkCooldown > 0.0)
-		return true;
-	HonkCooldown = SetPokemonRandomBattleAction();
-	return true;
+	return PerformScooterHonk();
 }
 
 function SetVehicleHonkAni(bool b, float blend_time)
@@ -613,6 +598,78 @@ function SetVehicleHonkAni(bool b, float blend_time)
 function OnDoHonk()
 {
 	//Lol, nope.
+}
+
+final simulated function bool PerformScooterHonk() //Returns false if Owner is None or its Physics is not PHYS_Walking.
+{
+	local Hat_Player ply;
+	local Name AnimName;
+	if (Owner == None)
+		return false;
+	if (Owner.Physics != PHYS_Walking)
+		return false;
+	if (HonkCooldown > 0.0)
+		return true;
+	AnimName = GetRandomBattleActionAnimation();
+	HonkCooldown = SetPokemonCustomBattleActionAnimation(ScooterMeshComp, AnimName);
+	if (HonkCooldown <= 0.0)
+		return true;
+	if (HonkSound != None)
+	{
+		HonkCooldown = FMax(HonkCooldown, FMax(0.0, HonkSound.GetCueDuration()));
+		ModifyPokemonFace(ScooterMeshComp, true);
+		if (HonkParticleComponent != None)
+			HonkParticleComponent.SetActive(true);
+		Owner.PlaySound(HonkSound);
+		ScareNearbyPawns(Owner, PokemonScaresPlayers && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
+	}
+	SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
+	ply = Hat_Player(Owner);
+	if (ply != None)
+		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Action"$AnimName, ply, , ModInstance);
+	return true;
+}
+
+final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name AnimName)
+{
+	local float f;
+	if (gpp == None || gpp.ScooterMesh == None)
+		return;
+	if (gpp.ScooterMesh.SkeletalMesh != default.ScooterMesh)
+		return;
+	if (AnimName == '')
+	{
+		ModifyPokemonFace(gpp.ScooterMesh, false);
+		return;
+	}
+	f = SetPokemonCustomBattleActionAnimation(gpp.ScooterMesh, AnimName);
+	if (f <= 0.0)
+		return;
+	if (default.HonkSound != None)
+	{
+		f = FMax(f, FMax(0.0, default.HonkSound.GetCueDuration()));
+		ModifyPokemonFace(gpp.ScooterMesh, true);
+		if (default.HonkParticle != None)
+		{
+			if (gpp.ScooterHornParticle == None && gpp.ScooterMesh.GetSocketByName('Horn') != None)
+			{
+				gpp.ScooterHornParticle = new(gpp) class'ParticleSystemComponent';
+				if (gpp.ScooterHornParticle != None)
+				{
+					gpp.ScooterHornParticle.SetTemplate(default.HonkParticle);
+					gpp.ScooterHornParticle.SetTranslation(vect(0.0, 0.0, 0.0));
+					gpp.ScooterHornParticle.CastShadow = true;
+					gpp.ScooterHornParticle.bNoSelfShadow = true;
+					gpp.ScooterMesh.AttachComponentToSocket(gpp.ScooterHornParticle, 'Horn');
+					gpp.ScooterHornParticle.SetActive(true);
+				}
+			}
+			else if (gpp.ScooterHornParticle != None)
+				gpp.ScooterHornParticle.SetActive(true);
+		}
+		gpp.PlaySound(default.HonkSound);
+	}
+	SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
 }
 
 final simulated function UpdateVisuals()
@@ -920,30 +977,6 @@ final static function float SetPokemonCustomBattleActionAnimation(SkeletalMeshCo
 	return f;
 }
 
-final simulated function float SetPokemonRandomBattleAction()
-{
-	local Hat_Player ply;
-	local Name AnimName;
-	local float f;
-	AnimName = GetRandomBattleActionAnimation();
-	f = SetPokemonCustomBattleActionAnimation(ScooterMeshComp, AnimName);
-	if (f <= 0.0)
-		return 0.0;
-	ModifyPokemonFace(ScooterMeshComp, true);
-	SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
-	if (HonkSound != None)
-	{
-		if (HonkParticleComponent != None)
-			HonkParticleComponent.SetActive(true);
-		Owner.PlaySound(HonkSound);
-	}
-	ScareNearbyPawns(Owner, PokemonScaresPlayers && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
-	ply = Hat_Player(Owner);
-	if (ply != None)
-		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Action"$AnimName, ply, , ModInstance);
-	return f;
-}
-
 final simulated function SetPokemonIdle()
 {
 	local Hat_Player ply;
@@ -1026,7 +1059,7 @@ final static function ScareNearbyPawns(Actor a, bool CanScarePlayers)
 			continue;
 		if (p.bHidden)
 			continue;
-		if (VSize((p.Location-a.Location)*vect(1.0, 1.0, 0.7)) > 600.0)
+		if (VSizeSq((p.Location-a.Location)*vect(1.0, 1.0, 0.7)) > 360000.0)
 			continue;
 		ply = Hat_Player(p);
 		if (ply != None)
@@ -1054,7 +1087,7 @@ final static function GhostPartyScareNearbyPlayers(Hat_GhostPartyPlayer gpp) //O
 	{
 		if (ply == None)
 			continue;
-		if (VSize((ply.Location-gpp.Location)*vect(1.0, 1.0, 0.7)) > 600.0)
+		if (VSizeSq((ply.Location-gpp.Location)*vect(1.0, 1.0, 0.7)) > 360000.0)
 			continue;
 		ScarePlayer(ply);
 	}
@@ -1100,31 +1133,6 @@ final static function ScareMafia(Hat_Enemy_Mobster_Base m)
 {
 	if (m != None)
 		m.GiveStatusEffect(class'Hat_StatusEffect_VehicleHonkScared');
-}
-
-final static function PerformOnlinePlayerScooterHonk(Hat_GhostPartyPlayer gpp)
-{
-	if (default.HonkSound == None)
-		return;
-	if (gpp == None)
-		return;
-	if (gpp.ScooterMesh == None)
-		return;
-	if (default.HonkParticle != None)
-	{
-		if (gpp.ScooterHornParticle == None && gpp.ScooterMesh.GetSocketByName('Horn') != None)
-		{
-			gpp.ScooterHornParticle = new(gpp) class'ParticleSystemComponent';
-			gpp.ScooterHornParticle.SetTemplate(default.HonkParticle);
-			gpp.ScooterHornParticle.SetTranslation(vect(0.0, 0.0, 0.0));
-			gpp.ScooterHornParticle.CastShadow = true;
-			gpp.ScooterHornParticle.bNoSelfShadow = true;
-			gpp.ScooterMesh.AttachComponentToSocket(gpp.ScooterHornParticle, 'Horn');
-		}
-		if (gpp.ScooterHornParticle != None)
-			gpp.ScooterHornParticle.SetActive(true);
-	}
-	gpp.PlaySound(default.HonkSound);
 }
 
 defaultproperties

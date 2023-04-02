@@ -386,7 +386,7 @@ event OnModUnloaded()
 				ply.RemoveStatusEffect(class'Hat_StatusEffect_RideablePokemon', true);
 		}
 	}
-	StopFurretMusic(0.0);
+	RemoveFurretMusic();
 	RemoveModItems();
 }
 
@@ -436,9 +436,9 @@ simulated event Tick(float DeltaTime)
 	if (WorldInfo == None || WorldInfo.Pauser == None)
 	{
 		if (ShouldLocalMusicBeDisabled && ShouldOnlineMusicBeDisabled)
-			StopFurretMusic(RandRange(0.5, 2.4));
+			StopFurretMusic();
 		else
-			CreateFurretMusic(RandRange(0.5, 1.2));
+			StartFurretMusic();
 	}
 }
 
@@ -460,7 +460,7 @@ simulated function bool CleanUpLocalPlayers()
 			continue;
 		if (Hat_StatusEffect_RideableFurret(CurrentPlayers[i].GetStatusEffect(class'Hat_StatusEffect_RideableFurret', false)) == None)
 			continue;
-		if (VSize2D(CurrentPlayers[i].Velocity) > 0.5*CurrentPlayers[i].GroundSpeed && Abs(CurrentPlayers[i].VehicleProperties.Throttle) > 0.1)
+		if (VSizeSq2D(CurrentPlayers[i].Velocity) > 0.25*CurrentPlayers[i].GroundSpeed*CurrentPlayers[i].GroundSpeed && Abs(CurrentPlayers[i].VehicleProperties.Throttle) > 0.1)
 			ShouldLocalMusicBeDisabled = false;
 	}
 	if (mod_disabled != 0 || FurretMusic == 1)
@@ -500,7 +500,7 @@ simulated function bool CleanUpOnlinePlayers()
 		PlayerClass = gpp.PlayerVisualClass;
 		if (PlayerClass == None)
 			PlayerClass = class'Hat_Player_HatKid';
-		if (VSize2D(gpp.Velocity) <= 0.5*PlayerClass.default.GroundSpeed)
+		if (VSizeSq2D(gpp.Velocity) <= 0.25*PlayerClass.default.GroundSpeed*PlayerClass.default.GroundSpeed)
 			continue;
 		for (j = 0; j < CurrentPlayers.Length; j++)
 		{
@@ -518,33 +518,43 @@ simulated function bool CleanUpOnlinePlayers()
 	return ShouldOnlineMusicBeDisabled;
 }
 
-simulated function CreateFurretMusic(float FadeInTime)
+static function Hat_MusicNodeBlend_Dynamic CreateAndPushDynamicMusicNode(SoundCue c, int BPM, int Priority, float BlendInTime, float BlendOutTime)
 {
-	if (FurretMusicTrack != None)
-	{
-		if (FurretMusicTrack.GetActiveChildIndex() != 1)
-			FurretMusicTrack.SetActiveChildIndex(1);
-	}
-	else
-	{
-		FurretMusicTrack = new class'Hat_MusicNodeBlend_Dynamic';
-		FurretMusicTrack.Music = SoundCue'RideableFurret_Package.Music.Accumula_Town';
-		FurretMusicTrack.Priority = 800;
-		FurretMusicTrack.BPM = 123;
-		FurretMusicTrack.BlendTimes[0] = FadeInTime;
-		FurretMusicTrack.BlendTimes[1] = FadeInTime;
-		`PushMusicNode(FurretMusicTrack);
-	}
+	local Hat_MusicNodeBlend_Dynamic DynamicMusicNode;
+	if (c == None)
+		return None;
+	DynamicMusicNode = new class'Hat_MusicNodeBlend_Dynamic';
+	if (DynamicMusicNode == None)
+		return None;
+	DynamicMusicNode.BlendTimes[0] = Abs(BlendInTime);
+	DynamicMusicNode.BlendTimes[1] = Abs(BlendOutTime);
+	DynamicMusicNode.Music = c;
+	DynamicMusicNode.BPM = Abs(BPM);
+	DynamicMusicNode.Priority = Priority;
+	`PushMusicNode(DynamicMusicNode);
+	return DynamicMusicNode;
 }
 
-simulated function StopFurretMusic(float FadeOutTime)
+simulated function StartFurretMusic()
+{
+	if (FurretMusicTrack == None)
+		FurretMusicTrack = CreateAndPushDynamicMusicNode(SoundCue'RideableFurret_Package.Music.Accumula_Town', 123, 800, RandRange(0.5, 1.2), RandRange(0.5, 2.4));
+	else if (FurretMusicTrack.GetActiveChildIndex() != 1)
+		FurretMusicTrack.SetActiveChildIndex(1);
+}
+
+simulated function StopFurretMusic()
+{
+	if (FurretMusicTrack != None && FurretMusicTrack.GetActiveChildIndex() != 0)
+		FurretMusicTrack.SetActiveChildIndex(0);
+}
+
+simulated function RemoveFurretMusic()
 {
 	if (FurretMusicTrack != None)
 	{
-		FurretMusicTrack.BlendTimes[0] = FadeOutTime;
-		FurretMusicTrack.BlendTimes[1] = FadeOutTime;
-		if (FurretMusicTrack.GetActiveChildIndex() != 0)
-			FurretMusicTrack.SetActiveChildIndex(0);
+		FurretMusicTrack.Stop();
+		FurretMusicTrack = None;
 	}
 }
 

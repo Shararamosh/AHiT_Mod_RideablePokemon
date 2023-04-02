@@ -109,7 +109,7 @@ static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayerStateBase Sender, cl
 static function RestoreOnlinePlayerMeshValues(Hat_GhostPartyPlayer gpp)
 {
 	local class<Hat_Player> PlayerClass;
-	if (gpp.SkeletalMeshComponent == None)
+	if (gpp == None || gpp.SkeletalMeshComponent == None)
 		return;
 	PlayerClass = gpp.PlayerVisualClass;
 	gpp.SkeletalMeshComponent.SetScale((PlayerClass == None || PlayerClass.default.Mesh == None) ? class'Hat_Player_HatKid'.default.Mesh.Scale : PlayerClass.default.Mesh.Scale);
@@ -118,7 +118,7 @@ static function RestoreOnlinePlayerMeshValues(Hat_GhostPartyPlayer gpp)
 
 static function RestoreOnlinePlayerMeshValuesFromScooter(Hat_GhostPartyPlayer gpp, float f, Vector v)
 {
-	if (gpp.SkeletalMeshComponent == None)
+	if (gpp == None || gpp.SkeletalMeshComponent == None)
 		return;
 	gpp.SkeletalMeshComponent.SetScale(f);
 	gpp.SkeletalMeshComponent.SetScale3D(v);
@@ -126,26 +126,9 @@ static function RestoreOnlinePlayerMeshValuesFromScooter(Hat_GhostPartyPlayer gp
 
 static function SetOnlinePokemonBattleAction(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, Name AnimName)
 {
-	local Hat_GhostPartyPlayer gpp;
-	local float f;
 	if (Sender == None || PokemonEffect == None)
 		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
-	if (gpp == None)
-		return;
-	if (gpp.ScooterMesh.SkeletalMesh != PokemonEffect.default.ScooterMesh)
-		return;
-	f = PokemonEffect.static.SetPokemonCustomBattleActionAnimation(gpp.ScooterMesh, AnimName);
-	if (f > 0.0)
-	{
-		PokemonEffect.static.ModifyPokemonFace(gpp.ScooterMesh, true);
-		PokemonEffect.static.SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
-		PokemonEffect.static.PerformOnlinePlayerScooterHonk(gpp);
-		if (class'GameMod'.static.GetConfigValue(class'RideablePokemon_Script', 'AllowPokemonScaring') == 0)
-			PokemonEffect.static.GhostPartyScareNearbyPlayers(gpp);
-	}
-	else
-		PokemonEffect.static.ModifyPokemonFace(gpp.ScooterMesh, false);
+	PokemonEffect.static.PerformOnlineScooterHonk(Hat_GhostPartyPlayer(Sender.GhostActor), AnimName);
 }
 
 static function SetOnlinePokemonHealthNumber(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, int h)
@@ -186,13 +169,11 @@ static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayerStateBase Sender, clas
 
 static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, RideablePokemon_Script ModInstance)
 {
-	local string s;
 	if (ModInstance == None || Sender == None)
 		return;
 	if (Left(MinusedCommand, 6) ~= "action")
 	{
-		s = Right(MinusedCommand, Len(MinusedCommand)-6);
-		SetOnlinePokemonBattleAction(Sender, PokemonEffect, Name(s));
+		SetOnlinePokemonBattleAction(Sender, PokemonEffect, Name(Right(MinusedCommand, Len(MinusedCommand)-6)));
 		return;
 	}
 	switch(locs(MinusedCommand))
