@@ -72,7 +72,7 @@ defaultproperties
 	HonkSound = SoundCue'RideableFurret_Package.Sounds.Furret_Cry_Cue'
 	ScooterAnimNodesName = "Bench_Sit"
 	ScooterLoopAnimation = "sit_bench"
-	WireframeMaterials.Add(MaterialInstanceTimeVarying'RideableFurret_Package.Materials.pm0162_00_00_Mouth')
-	WireframeMaterials.Add(Material'RideableFurret_Package.Materials.pm0162_00_00_Body')
-	WireframeMaterials.Add(Material'RideableFurret_Package.Materials.pm0162_00_00_Eye')
+	WireframeMaterials.Add(MaterialInstanceTimeVarying'RideableFurret_Package.Materials.pm0162_00_00_Mouth_Wireframe')
+	WireframeMaterials.Add(Material'RideableFurret_Package.Materials.pm0162_00_00_Body_Wireframe')
+	WireframeMaterials.Add(Material'RideableFurret_Package.Materials.pm0162_00_00_Eye_Wireframe')
 }

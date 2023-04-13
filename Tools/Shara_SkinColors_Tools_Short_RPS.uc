@@ -57,76 +57,46 @@ static function SetTransitionEffectMesh(MeshComponent comp, Name n, float start,
 		SetMaterialInstanceTransitionEffect(MaterialInstance(comp.GetMaterial(i)), n, icf);
 }	
 
-static function ResetMaterials(MeshComponent comp, optional bool UseComponentDefaultMaterials)
+static function ResetMaterials(MeshComponent comp)
 {
 	local int i;
+	local SkeletalMeshComponent skmComp;
+	local StaticMeshComponent stmComp;
+	local bool IsDefaultMesh;
 	if (comp == None)
 		return;
+	skmComp = SkeletalMeshComponent(comp);
+	stmComp = StaticMeshComponent(comp);
+	if (skmComp != None && skmComp.SkeletalMesh == skmComp.default.SkeletalMesh)
+		IsDefaultMesh = true;
+	else if (stmComp != None && stmComp.StaticMesh == stmComp.default.StaticMesh)
+		IsDefaultMesh = true;
 	for (i = 0; i < comp.GetNumElements(); i++)
-		ResetMeshMaterial(comp, i, UseComponentDefaultMaterials);
-}
-
-static function ResetMeshMaterial(MeshComponent comp, int i, optional bool UseComponentDefaultMaterial)
-{
-	if (comp == None || i < 0)
-		return;
-	if (ResetSkeletalMeshMaterial(SkeletalMeshComponent(comp), i, UseComponentDefaultMaterial))
-		return;
-	if (ResetStaticMeshMaterial(StaticMeshComponent(comp), i, UseComponentDefaultMaterial))
-		return;
-	comp.SetMaterial(i, None);
-}
-
-static function bool ResetSkeletalMeshMaterial(SkeletalMeshComponent comp, int i, optional bool UseComponentDefaultMaterial)
-{
-	if (comp == None)
-		return false;
-	if (comp.default.Materials.Length > i && comp.default.Materials[i] != None)
 	{
-		if (UseComponentDefaultMaterial || comp.SkeletalMesh == comp.default.SkeletalMesh)
+		if (IsDefaultMesh && i < comp.default.Materials.Length)
 			comp.SetMaterial(i, comp.default.Materials[i]);
 		else
 			comp.SetMaterial(i, None);
 	}
-	else
-		comp.SetMaterial(i, None);
-	return true;
 }
-
-static function bool ResetStaticMeshMaterial(StaticMeshComponent comp, int i, optional bool UseComponentDefaultMaterial)
-{
-	if (comp == None)
-		return false;
-	if (comp.default.Materials.Length > i && comp.default.Materials[i] != None)
-	{
-		if (UseComponentDefaultMaterial || comp.StaticMesh == comp.default.StaticMesh)
-			comp.SetMaterial(i, comp.default.Materials[i]);
-		else
-			comp.SetMaterial(i, None);
-	}
-	else
-		comp.SetMaterial(i, None);
-	return true;
-}	
 
 static function ConditionalInitMaterialInstancesMesh(MeshComponent comp) //Inits MaterialInstances on MeshComponent. Optimized: does not create unnecessary instances in case there's one already.
 {
 	local int i;
-	local Material mat;
-	local MaterialInterface MatInt, InvisMat;
+	local MaterialInterface mat;
 	if (comp != None)
 	{
 		for (i = 0; i < comp.GetNumElements(); i++)
 		{
-			MatInt = comp.GetMaterial(i);
-			if (MatInt == None)
+			mat = comp.GetMaterial(i);
+			if (mat == None)
 				continue;
-			mat = MatInt.GetMaterial();
+			mat = mat.GetMaterial();
 			if (mat == Material'HatInTime_Characters.Materials.Invisible' || mat == Material'HatInTime_Characters.Materials.OccludedMaterial')
 			{
-				InvisMat = GetActualMaterial(comp.GetMaterial(i));
-				if (comp.GetMaterial(i) != InvisMat)
-					SetMaterialParentToInstance(comp, i, InvisMat);
+				mat = GetActualMaterial(comp.GetMaterial(i));
+				if (comp.GetMaterial(i) != mat)
+					SetMaterialParentToInstance(comp, i, mat);
 			}
 			else
 				ConditionalInitMaterialInstance(comp, i);
