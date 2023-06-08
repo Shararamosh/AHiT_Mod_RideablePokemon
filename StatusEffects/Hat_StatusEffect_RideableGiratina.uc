@@ -29,10 +29,10 @@ static function SetPokemonTimeAfterSpawn(SkeletalMeshComponent comp, float f)
 	SetTimeAfterSpawnMesh(GetGiratinaAttachment(comp), f);
 }
 
-static function SetPokemonMuddyEffect(SkeletalMeshComponent comp, bool IsMuddy)
+static function SetPokemonMuddyEffect(SkeletalMeshComponent comp, bool b)
 {
-	Super.SetPokemonMuddyEffect(comp, IsMuddy);
-	SetMuddyEffectMesh(GetGiratinaAttachment(comp), IsMuddy);
+	Super.SetPokemonMuddyEffect(comp, b);
+	SetMuddyEffectMesh(GetGiratinaAttachment(comp), b);
 }
 
 static function SetPokemonAttackEmissionEffect(SkeletalMeshComponent comp, float EffectDuration)

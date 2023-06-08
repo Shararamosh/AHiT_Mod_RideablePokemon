@@ -5,7 +5,7 @@ class Shara_SteamID_Tools_RPS extends Object
 	This class includes functions that are dealing with players' Steam IDs, indexes and Controllers.
 	RPS suffix means RideablePokemon_Script.
 	All functions are written by Shararamosh.
-	Last edited: 30.04.2023 1:44 GMT+3.
+	Last edited: 31.05.2023 3:50 GMT+3.
 */
 
 static function string GetMySteamID() //Returns your Steam ID.
@@ -49,11 +49,10 @@ static function bool GetPlayerInfo(Actor a, out string SteamID, out int PlayerIn
 	return IsCorrectPlayerIndex(PlayerIndex) && IsCorrectSteamID(SteamID);
 }
 
-static function PlayerController GetPlayerController(Object o) //Returns PlayerController. Input parameter can be HUD, Pawn, PlayerReplicationInfo, PlayerController and Player.
+static function PlayerController GetPlayerController(Object o) //Returns PlayerController. Input parameter can be HUD, Pawn, PlayerController and Player.
 {
 	local PlayerController pc;
 	local HUD H;
-	local PlayerReplicationInfo PRI;
 	local Player EnginePlayer;
 	local Pawn p;
 	pc = PlayerController(o);
@@ -65,9 +64,6 @@ static function PlayerController GetPlayerController(Object o) //Returns PlayerC
 	H = HUD(o);
 	if (H != None)
 		return H.PlayerOwner;
-	PRI = PlayerReplicationInfo(o);
-	if (PRI != None)
-		return GetPlayerController(PRI.Owner);
 	EnginePlayer = Player(o);
 	if (EnginePlayer != None)
 		return EnginePlayer.Actor;
@@ -105,12 +101,6 @@ static function PlayerController GetPawnPlayerController(Pawn p, optional out Ar
 	pc = PlayerController(p.Controller);
 	if (pc != None)
 		return pc;
-	if (p.PlayerReplicationInfo != None)
-	{
-		pc = PlayerController(p.PlayerReplicationInfo.Owner);
-		if (pc != None)
-			return pc;
-	}
 	if (IteratedPawns.Find(p) == INDEX_NONE)
 		IteratedPawns.AddItem(p);
 	else
@@ -178,13 +168,11 @@ static function PlayerController GetPlayerByIndex(int PlayerIndex) //Returns Pla
 	return e.GamePlayers[PlayerIndex].Actor;
 }
 
-static function Pawn GetPawn(Object o) //Returns ANY Pawn, including Vehicle and Hat_Player. Input parameter can be Pawn, Controller, HUD, PlayerReplicationInfo, PlayerController and Player.
+static function Pawn GetPawn(Object o) //Returns ANY Pawn, including Vehicle and Hat_Player. Input parameter can be Pawn, Controller, HUD, PlayerController and Player.
 {
 	local Controller c;
 	local Pawn p;
 	local HUD H;
-	local PlayerReplicationInfo PRI;
-	local Hat_PlayerReplicationInfo HPRI;
 	local Player EnginePlayer;
 	if (o == None)
 		return None;
@@ -197,14 +185,6 @@ static function Pawn GetPawn(Object o) //Returns ANY Pawn, including Vehicle and
 	H = HUD(o);
 	if (H != None)
 		return GetPawn(H.PlayerOwner);
-	PRI = PlayerReplicationInfo(o);
-	if (PRI != None)
-	{
-		HPRI = Hat_PlayerReplicationInfo(PRI);
-		if (HPRI != None && HPRI.PlyOwner != None)
-			return HPRI.PlyOwner;
-		return GetPawn(PRI.Owner);
-	}
 	EnginePlayer = Player(o);
 	if (EnginePlayer != None)
 		return GetPawn(EnginePlayer.Actor);
@@ -231,19 +211,6 @@ static function Pawn GetNonVehiclePawn(Object o, optional out Array<Vehicle> Ite
 static function Hat_Player GetPlayerPawn(Object o) //Returns Hat_Player Actor. Simply casts result of GetNonVehiclePawn to Hat_Player.
 {
 	return Hat_Player(GetNonVehiclePawn(o));
-}
-
-static function InventoryManager GetPawnInventoryManager(Pawn p) //Returns InventoryManager Actor. Tries to find InventoryManager from Hat_PlayerReplicationInfo too.
-{
-	local Hat_PlayerReplicationInfo HPRI;
-	if (p == None)
-		return None;
-	if (p.InvManager != None)
-		return p.InvManager;
-	HPRI = Hat_PlayerReplicationInfo(p.PlayerReplicationInfo);
-	if (HPRI != None && HPRI.InvManager != None)
-		return HPRI.InvManager;
-	return None;
 }
 
 static function int GetOtherPlayerIndex(Hat_Player ply) //Returns player index of another player (in Co-op or whatever).

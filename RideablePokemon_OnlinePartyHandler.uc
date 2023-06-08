@@ -131,7 +131,7 @@ static function SetOnlinePokemonBattleAction(Hat_GhostPartyPlayerStateBase Sende
 	PokemonEffect.static.PerformOnlineScooterHonk(Hat_GhostPartyPlayer(Sender.GhostActor), AnimName);
 }
 
-static function SetOnlinePokemonHealthNumber(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, int h)
+static function SetOnlinePokemonHealth(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, int h)
 {
 	local Hat_GhostPartyPlayer gpp;
 	if (Sender == None || PokemonEffect == None)
@@ -140,7 +140,7 @@ static function SetOnlinePokemonHealthNumber(Hat_GhostPartyPlayerStateBase Sende
 	if (gpp == None)
 		return;
 	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
-		PokemonEffect.static.SetPokemonHealthNumber(gpp.ScooterMesh, h);
+		PokemonEffect.static.SetPokemonHealth(gpp.ScooterMesh, h);
 }
 
 static function SetOnlinePokemonWireframe(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsWireframe)
@@ -205,7 +205,7 @@ static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostPartyPlayer
 			break;
 		default:
 			if (Right(MinusedCommand, 6) ~= "health")
-				SetOnlinePokemonHealthNumber(Sender, PokemonEffect, int(Left(MinusedCommand, Len(MinusedCommand)-6)));
+				SetOnlinePokemonHealth(Sender, PokemonEffect, int(Left(MinusedCommand, Len(MinusedCommand)-6)));
 			break;
 	}
 }

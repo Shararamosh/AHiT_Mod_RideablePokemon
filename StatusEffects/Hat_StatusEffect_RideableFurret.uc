@@ -5,7 +5,7 @@ static function BattleActionAnims GetBattleActionAnims()
 	local BattleActionAnims baa;
 	baa.IdleAnims.AddItem('Battle_Idle1');
 	baa.IdleAnims.AddItem('Battle_Idle2');
-	baa.PhysicalAttackAnims.AddItem('Battle_PhysicalAtack');
+	baa.PhysicalAttackAnims.AddItem('Battle_PhysicalAttack');
 	baa.SpecialAttackAnims.AddItem('Battle_SpecialAttack');
 	baa.TakingDamageAnims.AddItem('Battle_Damage');
 	return baa;

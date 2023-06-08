@@ -1,6 +1,8 @@
 class Hat_StatusEffect_RideablePokemon extends Hat_StatusEffect_BadgeScooter
 	abstract;
 
+const HealthMax = 4;
+
 enum AnimationType
 {
 	Type_None, //No Animation has been assigned yet.
@@ -28,11 +30,11 @@ var const Array<MaterialInterface> WireframeMaterials;
 var const bool PokemonScaresPlayers, DebugOnly, TiedToFlair;
 var protectedwrite transient float ScooterScale, TimeUntilLoopAnimation;
 var protectedwrite transient Vector ScooterScale3D;
-var protectedwrite transient int CurrentHealth;
+var protectedwrite transient int Health;
 var protectedwrite transient AnimationType PlayerAnimationType; 
 var protected transient RideablePokemon_Script ModInstance;
 var protected transient SavedActorProperties SavedProperties;
-var protectedwrite transient class<Hat_Collectible_Skin> CurrentSkinClass;
+var protectedwrite transient bool IsWireframe, IsMuddy;
 var protectedwrite transient class<Hat_StatusEffect_Muddy> CurrentMuddyStatus;
 var const RBCollisionChannelContainer ScooterCollisionContainer;
 
@@ -330,7 +332,7 @@ final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
-		invm = Hat_InventoryManager(class'Shara_SteamID_Tools_RPS'.static.GetPawnInventoryManager(ply));
+		invm = Hat_InventoryManager(ply.InvManager);
 		if (invm != None)
 			return Hat_Ability_Trigger(invm.Hat);
 		return None;
@@ -576,12 +578,8 @@ simulated function bool Update(float delta)
 	if (SpeedDustParticleComponent != None)
 		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && VSizeSq2D(ply.Velocity) > 0.25*ply.GroundSpeed*ply.GroundSpeed && Abs(ply.VehicleProperties.Throttle) > 0.1);
 	UpdateSounds(delta);
-	if (ply.Health != CurrentHealth)
-	{
-		CurrentHealth = ply.Health;
-		SetPokemonHealth();
-	}
-	UpdateVisuals();
+	UpdateVisuals(class<Hat_Collectible_Skin_Wireframe>(class'Shara_SkinColors_Tools_Short_RPS'.static.GetCurrentSkin(ply)) != None, Hat_StatusEffect_Muddy(ply.GetStatusEffect(class'Hat_StatusEffect_Muddy', true)) != None);
+	UpdateHealth(ply.Health);
 	return true;
 }
 
@@ -672,44 +670,36 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 	SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
 }
 
-final simulated function UpdateVisuals()
+final simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPlayerMuddy)
 {
-	local Hat_Player ply;
-	local class<Hat_Collectible_Skin> NewSkinClass;
-	local Hat_StatusEffect_Muddy NewMuddyStatus;
-	ply = Hat_Player(Owner);
-	if (ply == None)
-		return;
-	NewSkinClass = class'Shara_SkinColors_Tools_Short_RPS'.static.GetCurrentSkin(ply);
-	UpdateVisualsBasedOnSkins(ply, ScooterMeshComp, CurrentSkinClass, NewSkinClass, ModInstance);
-	CurrentSkinClass = NewSkinClass;
-	NewMuddyStatus = Hat_StatusEffect_Muddy(ply.GetStatusEffect(class'Hat_StatusEffect_Muddy', true));
-	UpdateVisualsBasedOnMuddiness(ply, ScooterMeshComp, CurrentMuddyStatus, NewMuddyStatus, ModInstance);
-	CurrentMuddyStatus = (NewMuddyStatus != None ? NewMuddyStatus.Class : None);
-}
-
-final static function UpdateVisualsBasedOnMuddiness(Actor a, SkeletalMeshComponent comp, class<Hat_StatusEffect_Muddy> OldMuddyStatus, Hat_StatusEffect_Muddy NewMuddyStatus, optional out RideablePokemon_Script inst)
-{
-	local Hat_Player ply;
-	if (comp == None)
-		return;
-	ply = Hat_Player(a);
-	if (NewMuddyStatus == None) //Player is not muddy.
+	if (IsPlayerWireframe != IsWireframe)
 	{
-		if (OldMuddyStatus != None) //Player was muddy before. We just need to disable mud effect.
+		if (IsPlayerWireframe)
 		{
-			SetPokemonMuddyEffect(comp, false);
-			if (ply != None)
-				class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Clean", ply, , inst);
+			SetPokemonWireframeMaterials(ScooterMeshComp);
+			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Wireframe", Hat_Player(Owner), , ModInstance);
+			IsWireframe = true;
+		}
+		else
+		{
+			SetPokemonStandardMaterials(ScooterMeshComp);
+			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Standard", Hat_Player(Owner), , ModInstance);
+			IsWireframe = false;
 		}
 	}
-	else //Player is muddy.
+	if (IsPlayerMuddy != IsMuddy)
 	{
-		if (OldMuddyStatus == None || OldMuddyStatus != NewMuddyStatus.Class) //Player either was not muddy before or it had different mud status effect.
+		if (IsPlayerMuddy)
 		{
-			SetPokemonMuddyEffect(comp, true);
-			if (ply != None)
-				class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Muddy", ply, , inst);
+			SetPokemonMuddyEffect(ScooterMeshComp, true);
+			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Muddy", Hat_Player(Owner), , ModInstance);
+			IsMuddy = true;
+		}
+		else
+		{
+			SetPokemonMuddyEffect(ScooterMeshComp, false);
+			class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Clean", Hat_Player(Owner), , ModInstance);
+			IsMuddy = false;
 		}
 	}
 }
@@ -728,12 +718,12 @@ final static function GetMuddyColors(out LinearColor ColorLight, out LinearColor
 	}
 }
 
-static function SetPokemonMuddyEffect(SkeletalMeshComponent comp, bool IsMuddy)
+static function SetPokemonMuddyEffect(SkeletalMeshComponent comp, bool b)
 {
-	SetMuddyEffectMesh(comp, IsMuddy);
+	SetMuddyEffectMesh(comp, b);
 }
 
-final static function SetMuddyEffectMesh(MeshComponent comp, bool IsMuddy)
+final static function SetMuddyEffectMesh(MeshComponent comp, bool b)
 {
 	local int i;
 	local MaterialInstance inst;
@@ -743,7 +733,7 @@ final static function SetMuddyEffectMesh(MeshComponent comp, bool IsMuddy)
 	if (comp == None)
 		return;
 	GetMuddyColors(ColorLight, ColorDark);
-	Curve = class'Hat_Math'.static.GenerateCurveFloat((IsMuddy ? 0.0 : 1.0), (IsMuddy ? 1.0 : 0.0), (IsMuddy ? 0.2 : 0.5));
+	Curve = class'Hat_Math'.static.GenerateCurveFloat((b ? 0.0 : 1.0), (b ? 1.0 : 0.0), (b ? 0.2 : 0.5));
 	for (i = 0; i < comp.GetNumElements(); i++)
 	{
 		inst = MaterialInstance(comp.GetMaterial(i));
@@ -771,29 +761,6 @@ final static function SetAttackEmissionEffectMesh(MeshComponent comp, float Effe
 {
 	if (EffectDuration > 0.0)
 		class'Shara_SkinColors_Tools_Short_RPS'.static.SetTransitionEffectMesh(comp, 'AttackEmission', 0.0, 0.0, EffectDuration, 1.0, 0.5*EffectDuration);
-}
-
-static function UpdateVisualsBasedOnSkins(Actor a, SkeletalMeshComponent comp, class<Hat_Collectible_Skin> OldSkin, class<Hat_Collectible_Skin> NewSkin, optional RideablePokemon_Script inst)
-{
-	local Hat_Player ply;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
-		return;
-	if (OldSkin != NewSkin || OldSkin == None)
-	{
-		ply = Hat_Player(a);
-		if (class<Hat_Collectible_Skin_Wireframe>(NewSkin) != None)
-		{
-			SetPokemonWireframeMaterials(comp);
-			if (ply != None)
-				class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Wireframe", ply, , inst);
-		}
-		else if (class<Hat_Collectible_Skin_Wireframe>(OldSkin) != None || OldSkin == None)
-		{
-			SetPokemonStandardMaterials(comp);
-			if (ply != None)
-				class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Standard", ply, , inst);
-		}
-	}
 }
 
 static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
@@ -848,8 +815,6 @@ simulated function OnRemoved(Actor a)
 	local Hat_Player ply;
 	Super(Hat_StatusEffect).OnRemoved(a);
 	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(a);
-	CurrentSkinClass = None;
-	CurrentMuddyStatus = None;
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
@@ -929,16 +894,17 @@ simulated function OnRemoved(Actor a)
 		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"RideStop", ply, , ModInstance);
 }
 
-final simulated function SetPokemonHealth()
+final simulated function UpdateHealth(int h)
 {
-	local Hat_Player ply;
-	SetPokemonHealthNumber(ScooterMeshComp, CurrentHealth);
-	ply = Hat_Player(Owner);
-	if (ply != None)
-		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$CurrentHealth, ply, , ModInstance);
+	h = Clamp(h, 0, HealthMax);
+	if (h == Health)
+		return;
+	SetPokemonHealth(ScooterMeshComp, h);
+	Health = h;
+	class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$Health, Hat_Player(Owner), , ModInstance);
 }
 
-final static function SetPokemonHealthNumber(SkeletalMeshComponent comp, int h)
+final static function SetPokemonHealth(SkeletalMeshComponent comp, int h)
 {
 	ModifyPokemonEyes(comp, h);
 	SetAnimNodesByNameActive(comp, 'LowHealth', h < 2);
@@ -1140,7 +1106,7 @@ defaultproperties
 	ScooterPhysicsAssetInstance = true
 	ScooterScale = 1.0
 	ScooterScale3D = (X = 1.0, Y = 1.0, Z = 1.0)
-	CurrentHealth = 4
+	Health = HealthMax
 	WheelStopLeftSound = None
 	WheelStopRightSound = None
 	SpeedDustParticle = None

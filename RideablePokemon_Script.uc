@@ -279,7 +279,7 @@ static function bool HasNonVanillaScooterBadge(Hat_Player ply)
 	local Hat_Badge_Scooter ScooterBadge;
 	if (ply == None)
 		return false;
-	im = Hat_InventoryManager(class'Shara_SteamID_Tools_RPS'.static.GetPawnInventoryManager(ply));
+	im = Hat_InventoryManager(ply.InvManager);
 	if (im == None)
 		return false;
 	for (i = 0; i < im.Badges.Length; i++)

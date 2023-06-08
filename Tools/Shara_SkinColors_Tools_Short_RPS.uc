@@ -80,48 +80,57 @@ static function ResetMaterials(MeshComponent comp)
 	}
 }
 
-static function ConditionalInitMaterialInstancesMesh(MeshComponent comp) //Inits MaterialInstances on MeshComponent. Optimized: does not create unnecessary instances in case there's one already.
+static function ConditionalInitMaterialInstancesMesh(MeshComponent comp) //Inits MaterialInstances on MeshComponent. Optimized: ConditionalInitMaterialInstance does not create unnecessary instances.
 {
 	local int i;
-	local MaterialInterface mat;
-	if (comp != None)
-	{
-		for (i = 0; i < comp.GetNumElements(); i++)
-		{
-			mat = comp.GetMaterial(i);
-			if (mat == None)
-				continue;
-			mat = mat.GetMaterial();
-			if (mat == Material'HatInTime_Characters.Materials.Invisible' || mat == Material'HatInTime_Characters.Materials.OccludedMaterial')
-			{
-				mat = GetActualMaterial(comp.GetMaterial(i));
-				if (comp.GetMaterial(i) != mat)
-					SetMaterialParentToInstance(comp, i, mat);
-			}
-			else
-				ConditionalInitMaterialInstance(comp, i);
-		}
-	}
+	if (comp == None)
+		return;
+	for (i = 0; i < comp.GetNumElements(); i++)
+		ConditionalInitMaterialInstance(comp, i);
 }
 
-static function bool ConditionalInitMaterialInstance(MeshComponent comp, int i, optional out MaterialInstance CreatedInstance) //Inits one MaterialInstance on MeshComponent's Material with index i. Returns true in case it creates or finds instance. Also returns this instance as optional out variable.
+static function bool ConditionalInitMaterialInstance(MeshComponent comp, int i, optional out MaterialInstance CreatedInstance) //Inits one MaterialInstance on comp's Material with index i. Returns true in case it creates or finds instance. Also returns this instance as optional out variable. Force removes Invisible and OccludedMaterial instances.
 {
 	local MaterialInterface mat;
-	if (comp != None && comp.GetNumElements() > 0 && i > -1 && i < comp.GetNumElements())
+	CreatedInstance = None;
+	if (i < 0)
+		return false;
+	if (comp == None)
+		return false;
+	mat = comp.GetMaterial(i);
+	if (mat == None)
+		return false;
+	CreatedInstance = MaterialInstance(mat);
+	if (CreatedInstance != None && CreatedInstance.IsInMapOrTransientPackage()) //The target Material is already a transient instance.
 	{
-		mat = comp.GetMaterial(i);
-		CreatedInstance = ConditionalInitMaterialInstanceNoMesh(mat);
-		if (CreatedInstance != None)
+		switch(mat.GetMaterial()) //Not creating instances of Invisible and OccludedMaterial.
 		{
-			if (CreatedInstance != mat)
-				comp.SetMaterial(i, CreatedInstance);
-			return true;
+			case Material'HatInTime_Characters.Materials.Invisible':
+			case Material'HatInTime_Characters.Materials.OccludedMaterial':
+				comp.SetMaterial(i, GetActualMaterial(mat));
+				CreatedInstance = None;
+				return false;
+			default:
+				return true;
 		}
 	}
-	return false;
+	switch(mat.GetMaterial())
+	{
+		case Material'HatInTime_Characters.Materials.Invisible':
+		case Material'HatInTime_Characters.Materials.OccludedMaterial':
+			CreatedInstance = None;
+			return false;
+		default:
+			break;
+	}
+	if (MaterialInstanceConstant(mat) != None)
+		CreatedInstance = comp.CreateAndSetMaterialInstanceConstant(i);
+	else
+		CreatedInstance = comp.CreateAndSetMaterialInstanceTimeVarying(i);
+	return (CreatedInstance != None);
 }
 
-static function MaterialInstance ConditionalInitMaterialInstanceNoMesh(MaterialInterface mat) //Creates MaterialInstance (or returns detected one) and sets mat as its Parent. Does not set this Instance as material to MeshComponent.
+static function MaterialInstance ConditionalInitMaterialInstanceNoMesh(MaterialInterface mat) //Creates MaterialInstance (or returns detected one) and sets mat as its Parent. Does not set this Instance as Material to MeshComponent and does not ignore Invisible and OccludedMaterial.
 {
 	local MaterialInstance inst;
 	if (mat == None)
@@ -163,79 +172,81 @@ static function MaterialInterface GetActualMaterial(MaterialInterface mat) //Ret
 	return inst;
 }
 
-static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. True if the material instance currently on the comp is transient and we can just change its parent. False otherwise.
+static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. True if the Material Instance currently on the comp is transient and we can just change its parent. False otherwise.
 {
 	local MaterialInstance inst;
 	local MaterialInterface mat;
-	if (NewParent != None && comp != None && comp.GetNumElements() > 0 && comp.GetNumElements() > i)
+	if (i < 0 || NewParent == None || comp == None)
+		return false;
+	inst = MaterialInstance(comp.GetMaterial(i));
+	if (inst != None && inst.IsInMapOrTransientPackage())
 	{
-		inst = MaterialInstance(comp.GetMaterial(i));
-		if (inst != None && inst.IsInMapOrTransientPackage())
+		switch(NewParent.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
 		{
-			if (inst.Parent != NewParent);
-				inst.SetParent(NewParent);
-			if (MaterialInstance(NewParent) != None && MaterialInstance(NewParent).IsInMapOrTransientPackage()) //What if we set transient MaterialInstance as parent? Might change parent to original material after instance's changes are applied.
-			{
-				mat = GetActualMaterial(NewParent);
-				if (mat != None)
-					inst.SetParent(mat);
-			}
-			return true;
+			case Material'HatInTime_Characters.Materials.Invisible':
+			case Material'HatInTime_Characters.Materials.OccludedMaterial':
+				comp.SetMaterial(i, GetActualMaterial(NewParent));
+				return false;
 		}
-		else
-		{
-			comp.SetMaterial(i, NewParent);
-			mat = NewParent.GetMaterial();
-			if (mat != Material'HatInTime_Characters.Materials.Invisible' && mat != Material'HatInTime_Characters.Materials.OccludedMaterial')
-				ConditionalInitMaterialInstance(comp, i);
-			return false;
-		}
+		if (inst.Parent != NewParent);
+			inst.SetParent(NewParent);
+		mat = GetActualMaterial(NewParent);
+		if (mat != NewParent) //What if we set transient MaterialInstance as Parent? Might change Parent to original MaterialInterface after instance's changes are applied.
+			inst.SetParent(mat);
+		return true;
 	}
-	return false;
+	else
+	{
+		switch(NewParent.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
+		{
+			case Material'HatInTime_Characters.Materials.Invisible':
+			case Material'HatInTime_Characters.Materials.OccludedMaterial':
+				comp.SetMaterial(i, GetActualMaterial(NewParent));
+				break;
+			default:
+				comp.SetMaterial(i, NewParent);
+				ConditionalInitMaterialInstance(comp, i);
+				break;
+		}
+		return false;
+	}
 }
 
-static function class<Hat_Collectible_Skin> GetCurrentSkin(Actor a) //Returns current Skin used by player.
+static function class<Hat_Collectible_Skin> GetCurrentSkin(Actor a) //Returns current SkinClass used by Player.
 {
 	local Hat_Loadout l;
 	local Hat_GhostPartyPlayer gpp;
-	local class<Hat_Collectible_Skin> SkinClass;
 	if (a == None)
 		return None;
 	l = GetLoadout(a);
 	if (l != None)
-	{
-		if (l.MyLoadout.Skin == None)
-			return class'Hat_Collectible_Skin';
-		SkinClass = class<Hat_Collectible_Skin>(l.MyLoadout.Skin.BackpackClass);
-		return (SkinClass == None ? class'Hat_Collectible_Skin' : SkinClass);
-	}
+		return GetSkinFromLoadout(l);
 	gpp = Hat_GhostPartyPlayer(a);
 	if (gpp == None)
 		return None;
 	return (gpp.CurrentSkin == None ? class'Hat_Collectible_Skin' : gpp.CurrentSkin);
 }
 
-static function Hat_Loadout GetLoadout(Actor a) //Returns loadout of Player. Input can be Hat_Player or Hat_NPC_Player.
+static function class<Hat_Collectible_Skin> GetSkinFromLoadout(Hat_Loadout l) //Reads SkinClass from Hat_Loadout.
 {
-	local Hat_Player ply;
-	local Hat_NPC_Player npc;
+	local class<Hat_Collectible_Skin> SkinClass;
+	if (l == None)
+		return None;
+	if (l.MyLoadout.Skin == None)
+		return class'Hat_Collectible_Skin';
+	SkinClass = class<Hat_Collectible_Skin>(l.MyLoadout.Skin.BackpackClass);
+	return (SkinClass == None ? class'Hat_Collectible_Skin' : SkinClass);
+}
+
+static function Hat_Loadout GetLoadout(Actor a) //Returns loadout of Player. Input can be Pawn, Hat_PlayerController or Hat_NPC_Player.
+{
 	local Hat_PlayerController hpc;
-	local Hat_PlayerReplicationInfo HPRI;
-	if (a == None)
-		return None;
-	ply = Hat_Player(a);
-	if (ply != None)
-	{
-		hpc = Hat_PlayerController(class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(ply));
-		if (hpc != None)
-			return hpc.GetLoadout();
-		HPRI = Hat_PlayerReplicationInfo(ply.PlayerReplicationInfo);
-		if (HPRI != None)
-			return HPRI.MyLoadout;
-		return None;
-	}
+	local Hat_NPC_Player npc;
 	npc = Hat_NPC_Player(a);
 	if (npc != None)
 		return npc.GetLoadout();
-	return None;
+	hpc = Hat_PlayerController(class'Shara_SteamID_Tools_RPS'.static.GetPlayerController(a));
+	if (hpc == None)
+		return None;
+	return hpc.GetLoadout();
 }
