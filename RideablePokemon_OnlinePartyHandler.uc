@@ -252,6 +252,7 @@ defaultproperties
 	PokemonEffects.Add(class'Hat_StatusEffect_RideableGastrodon_ES')
 	PokemonEffects.Add(class'Hat_StatusEffect_RideableGarchomp_M')
 	PokemonEffects.Add(class'Hat_StatusEffect_RideableGogoat')
+	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableLeafeon'
 	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableGlaceon')
 	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableGiratina')
 }

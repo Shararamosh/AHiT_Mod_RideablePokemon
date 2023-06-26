@@ -609,4 +609,5 @@ defaultproperties
 	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_GlaceonCap')
 	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap')
 	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat')
+	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap')
 }

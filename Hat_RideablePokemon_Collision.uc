@@ -70,35 +70,21 @@ static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 	switch(comp.SkeletalMesh)
 	{
 		case class'Hat_StatusEffect_RideableNidoqueen'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableParasect'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableKangaskhan'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableSnorlax'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableFurret'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableOctillery_M'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableOctillery_F'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableFlygon'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableArmaldo'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGastrodon_WS'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGastrodon_ES'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGarchomp_M'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGarchomp_F'.default.ScooterMesh:
-			return true;
+		case class'Hat_StatusEffect_RideableLeafeon'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableGlaceon'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGiratina'.default.ScooterMesh:
-			return true;
 		case class'Hat_StatusEffect_RideableGogoat'.default.ScooterMesh:
 			return true;
 		default:
