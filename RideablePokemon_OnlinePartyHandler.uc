@@ -28,7 +28,7 @@ static function HandleOnlinePartyCommand(string Command, Name CommandChannel, Ha
 {
 	local class<Hat_StatusEffect_RideablePokemon> ReceivedStatus;
 	local string s;
-	if (Sender == None || Sender.IsLocalPlayer() || Command == "" || CommandChannel != default.MainChannel || ModInstance == None)
+	if (Sender == None || Command == "" || CommandChannel != default.MainChannel || ModInstance == None)
 		return;
 	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/HandleOnlinePartyCommand] Received Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(Sender)$". TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$".");
 	switch(locs(Command))

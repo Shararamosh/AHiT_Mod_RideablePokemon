@@ -17,7 +17,7 @@ struct BattleActionAnims
 	var Array<Name> IdleAnims, CryingAnims, PhysicalAttackAnims, SpecialAttackAnims, TakingDamageAnims;
 };
 
-struct SavedActorProperties
+struct ActorProperties
 {
 	var Actor PropertiesOwner;
 	var bool bCanBeBaseForPawns; //Pawn only.
@@ -33,7 +33,7 @@ var protectedwrite transient Vector ScooterScale3D;
 var protectedwrite transient int Health;
 var protectedwrite transient AnimationType PlayerAnimationType; 
 var protected transient RideablePokemon_Script ModInstance;
-var protected transient SavedActorProperties SavedProperties;
+var protected transient Array<ActorProperties> ActorsProperties;
 var protectedwrite transient bool IsWireframe, IsMuddy;
 var protectedwrite transient class<Hat_StatusEffect_Muddy> CurrentMuddyStatus;
 var const RBCollisionChannelContainer ScooterCollisionContainer;
@@ -349,9 +349,111 @@ final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 	return None;
 }
 
+final simulated function SaveActorProperties(Actor a)
+{
+	local int i;
+	local ActorProperties ap;
+	local Pawn p;
+	if (a == None)
+		return;
+	ap.PropertiesOwner = a;
+	p = Pawn(a);
+	if (p != None)
+	{
+		ap.bCanBeBaseForPawns = p.bCanBeBaseForPawns;
+		ap.AccelRate = p.AccelRate;
+	}
+	i = ActorsProperties.Find('PropertiesOwner', a);
+	if (i > -1)
+		ActorsProperties[i] = ap;
+	else
+		ActorsProperties.AddItem(ap);
+}
+
+final simulated function RestoreActorProperties(Actor a)
+{
+	local int i;
+	local bool b;
+	if (a == None)
+		return;
+	for (i = ActorsProperties.Length-1; i > -1; i--)
+	{
+		if (ActorsProperties[i].PropertiesOwner == a)
+		{
+			if (!b)
+			{
+				RestoreSavedActorProperties(ActorsProperties[i]);
+				b = true;
+			}
+			ActorsProperties.Remove(i, 1);
+		}
+	}
+}
+
+final simulated function RestoreActorsProperties()
+{
+	local int i;
+	local Array<Actor> RestoredActors;
+	for (i = ActorsProperties.Length-1; i > -1; i--)
+	{
+		if (ActorsProperties[i].PropertiesOwner != None && RestoredActors.Find(ActorsProperties[i].PropertiesOwner) < 0)
+		{
+			RestoreSavedActorProperties(ActorsProperties[i]);
+			RestoredActors.AddItem(ActorsProperties[i].PropertiesOwner);
+		}
+	}
+	ActorsProperties.Length = 0;
+}
+
+final static function bool RestoreSavedActorProperties(ActorProperties ap) //Returns true if any property value was changed.
+{
+	local Pawn p;
+	local bool b;
+	p = Pawn(ap.PropertiesOwner);
+	if (p == None)
+		return false;
+	if (p.bCanBeBaseForPawns != ap.bCanBeBaseForPawns)
+	{
+		p.bCanBeBaseForPawns = ap.bCanBeBaseForPawns;
+		b = true;
+	}
+	if (p.AccelRate != ap.AccelRate)
+	{
+		p.AccelRate = ap.AccelRate;
+		b = true;
+	}
+	return b;
+}
+
+final simulated function int IterateActorsProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
+{
+	local int i, j;
+	j = -1;
+	for (i = ActorsProperties.Length-1; i > -1; i--)
+	{
+		if (ActorsProperties[i].PropertiesOwner == None)
+		{
+			ActorsProperties.Remove(i, 1);
+			continue;
+		}
+		if (ActorsProperties[i].PropertiesOwner == Owner)
+		{
+			if (j < 0)
+				j = i;
+			else //A dupe.
+				ActorsProperties.Remove(i, 1);
+			continue;
+		}
+		RestoreSavedActorProperties(ActorsProperties[i]);
+		ActorsProperties.Remove(i, 1);
+	}
+	return j;
+}
+
 simulated function OnAdded(Actor a)
 {
 	local Hat_Player ply;
+	RestoreActorProperties(a);
 	if (!CanRidePokemon(a, false, true, true))
 	{
 		RemoveStatusEffect(a, class'Hat_StatusEffect_BadgeScooter', true);
@@ -445,9 +547,7 @@ simulated function OnAdded(Actor a)
 		ply.SetSandmobileAnim(ESandmobileAnim_JumpIn);
 		PlayerAnimationType = Type_Sandmobile;
 	}
-	SavedProperties.AccelRate = ply.AccelRate;
-	SavedProperties.bCanBeBaseForPawns = ply.bCanBeBaseForPawns;
-	SavedProperties.PropertiesOwner = ply;
+	SaveActorProperties(ply);
 	ply.AccelRate = 1500.0;
 	ply.VehicleProperties.VehicleModeActive = true;
 	ply.VehicleProperties.GroundTranslation = 0.0;
@@ -494,6 +594,7 @@ simulated function bool Update(float delta)
 	local Hat_Player ply;
 	local Hat_PlayerController hpc;
 	local bool ShouldPlayLoopAnimation;
+	IterateActorsProperties();
 	ply = Hat_Player(Owner);
 	if (ply == None || ply.Mesh == None)
 	{
@@ -813,7 +914,6 @@ final static function CopyParentMeshMaterials(MeshComponent ParentMesh, MeshComp
 simulated function OnRemoved(Actor a)
 {
 	local Hat_Player ply;
-	Super(Hat_StatusEffect).OnRemoved(a);
 	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(a);
 	ply = Hat_Player(a);
 	if (ply != None)
@@ -836,11 +936,7 @@ simulated function OnRemoved(Actor a)
 			default:
 				break;
 		}
-		if (SavedProperties.PropertiesOwner == ply)
-		{
-			ply.AccelRate = SavedProperties.AccelRate;
-			ply.bCanBeBaseForPawns = SavedProperties.bCanBeBaseForPawns;
-		}
+		RestoreActorProperties(ply);
 		ply.VehicleProperties.VehicleModeActive = false;
 		ply.SetStepUpOffsetMesh(None);
 		ply.ResetMoveSpeed();
@@ -856,6 +952,8 @@ simulated function OnRemoved(Actor a)
 		if (ExplodeSound != None)
 			ply.PlaySound(ExplodeSound);
 	}
+	else
+		RestoreActorProperties(a);
 	if (ScooterMeshComp != None)
 	{
 		ScooterMeshComp.DetachFromAny();
@@ -887,11 +985,17 @@ simulated function OnRemoved(Actor a)
 		WindSound = None;
 	}
 	PlayerAnimationType = Type_None;
-	SavedProperties = default.SavedProperties;
 	ScooterScale = default.ScooterScale;
 	ScooterScale3D = default.ScooterScale3D;
 	if (ply != None)
 		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"RideStop", ply, , ModInstance);
+	Super(Hat_StatusEffect).OnRemoved(a);
+}
+
+simulated function CleanUp()
+{
+	RestoreActorsProperties();
+	Super.CleanUp();
 }
 
 final simulated function UpdateHealth(int h)

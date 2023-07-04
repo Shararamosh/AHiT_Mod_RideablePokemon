@@ -1,9 +1,16 @@
 class Hat_RideablePokemon_Collision extends Actor
 	IterationOptimized;
 
+struct ActorCollisionProperties
+{
+	var Actor PropertiesOwner;
+	var bool bCollideActors, bBlockActors, bBlockPawns;
+};
+
 //Variable that contains list of Actors that decided to get based on us, but we don't need it and we should ignore collision with them.
 var private transient Array<Actor> IgnoreCollision;
-var private transient bool OnlinePlayerPropertiesModified, OnlinePlayerbCollideActors, OnlinePlayerbBlockActors, OnlinePlayerbBlockPawns;
+//Variable that contains Array of values of Collision properties of Actors before changing its Collision to blocking one. Saved as Array in order to properly maintain possible ownership changes.
+var private Array<ActorCollisionProperties> ActorsCollisionProperties;
 //REFERENCES TO OTHER CLASSES FUNCTIONS BEGIN!!!
 static function string GetPlayerString(Object o, optional bool FirstCapital)
 {
@@ -26,32 +33,131 @@ simulated function bool ConditionalDestroy(string FunctionName)
 	{
 		if (FunctionName != "")
 			SendWarningMessage("["$self.Name$"/"$FunctionName$"] Warning: Pokemon Collision will be destroyed as mod is disabled.", Owner);
-		Destroy();
+		if (!Destroy())
+			ShutDown();
 		return true;
 	}
 	if (Owner == None)
 	{
 		if (FunctionName != "")
 			SendWarningMessage("["$self.Name$"/"$FunctionName$"] Warning: Pokemon Collision will be destroyed as it has no Owner.");
-		Destroy();
+		if (!Destroy())
+			ShutDown();
 		return true;
 	}
 	if (Hat_GhostPartyPlayer(Owner) == None && Hat_Player(Owner) == None)
 	{
 		if (FunctionName != "")
 			SendWarningMessage("["$self.Name$"/"$FunctionName$"] Warning: Pokemon Collision will be destroyed as it has no valid Owner. Owner:"@GetPlayerString(Owner)$".");
-		Destroy();
+		if (!Destroy())
+			ShutDown();
 		return true;
 	}
 	return false;
+}
+
+simulated function ApplyOwnerCollisionProperties() //Executed in SetOwnerAsBase. Maintaining blocking collision on Owner and restoring collision in case ownership changed.
+{
+	local int i;
+	local ActorCollisionProperties acp;
+	i = IterateActorsCollisionProperties();
+	if (Owner == None)
+		return;
+	if (i < 0) //Owner's Collision Properties are not saved yet.
+	{
+		acp.PropertiesOwner = Owner;
+		acp.bCollideActors = Owner.bCollideActors;
+		acp.bBlockActors = Owner.bBlockActors;
+		acp.bBlockPawns = Owner.bBlockPawns;
+		ActorsCollisionProperties.AddItem(acp); //Saving Owner's Collision Properties while also removing non-Owner's ones.
+		SendWarningMessage("["$self.Name$"/ApplyOwnerCollisionProperties] Saved new Collision Properties for"@GetPlayerString(Owner)$": bCollideActors:"@bCollideActors$", bBlockActors:"@bBlockActors$", bBlockPawns:"@bBlockPawns$".");
+	}
+	if (Owner.bCollideActors != true || Owner.bBlockActors != true)
+		Owner.SetCollision(true, true, Owner.bIgnoreEncroachers);
+	if (!Owner.bBlockPawns)
+		Owner.bBlockPawns = true;
+}
+
+simulated function int IterateActorsCollisionProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
+{
+	local int i, j;
+	j = -1;
+	for (i = ActorsCollisionProperties.Length-1; i > -1; i--)
+	{
+		if (ActorsCollisionProperties[i].PropertiesOwner == None)
+		{
+			ActorsCollisionProperties.Remove(i, 1);
+			continue;
+		}
+		if (ActorsCollisionProperties[i].PropertiesOwner == Owner)
+		{
+			if (j < 0)
+				j = i;
+			else //A dupe.
+				ActorsCollisionProperties.Remove(i, 1);
+			continue;
+		}
+		RestoreSavedActorCollisionProperties(ActorsCollisionProperties[i]);
+		ActorsCollisionProperties.Remove(i, 1);
+	}
+	return j;
+}
+
+simulated function RestoreActorsCollisionProperties()
+{
+	local int i;
+	local Array<Actor> RestoredActors;
+	for (i = ActorsCollisionProperties.Length-1; i > -1; i--)
+	{
+		if (ActorsCollisionProperties[i].PropertiesOwner != None && RestoredActors.Find(ActorsCollisionProperties[i].PropertiesOwner) < 0)
+		{
+			RestoredActors.AddItem(ActorsCollisionProperties[i].PropertiesOwner);
+			RestoreSavedActorCollisionProperties(ActorsCollisionProperties[i]);
+		}
+	}
+	ActorsCollisionProperties.Length = 0;
+}
+
+static function bool RestoreSavedActorCollisionProperties(ActorCollisionProperties acp) //Returns true if any property value was changed.
+{
+	local bool b;
+	if (acp.PropertiesOwner == None)
+		return false;
+	if (acp.PropertiesOwner.bCollideActors != acp.bCollideActors || acp.PropertiesOwner.bBlockActors != acp.bBlockActors)
+	{
+		acp.PropertiesOwner.SetCollision(acp.bCollideActors, acp.bBlockActors, acp.PropertiesOwner.bIgnoreEncroachers);
+		b = true;
+	}
+	if (acp.PropertiesOwner.bBlockPawns != acp.bBlockPawns)
+	{
+		acp.PropertiesOwner.bBlockPawns = acp.bBlockPawns;
+		b = true;
+	}
+	return b;
 }
 
 simulated event PreBeginPlay()
 {
 	if (ConditionalDestroy("PreBeginPlay"))
 		return;
-	SendWarningMessage("["$self.Name$"/PreBeginPlay] Pokemon Collision is spawned for"@GetPlayerString(Owner)$".", Owner);
+	if (SetOwnerAsBase())
+	{
+		ModifyLocalPlayer(Hat_Player(Owner));
+		ModifyOnlinePlayer(Hat_GhostPartyPlayer(Owner));
+	}
 	Super.PreBeginPlay();
+	SendWarningMessage("["$self.Name$"/PreBeginPlay] Pokemon Collision is spawned for"@GetPlayerString(Owner)$".", Owner);
+}
+
+simulated event PostBeginPlay()
+{
+	if (ConditionalDestroy("PostBeginPlay"))
+		return;
+	if (SetOwnerAsBase())
+	{
+		ModifyLocalPlayer(Hat_Player(Owner));
+		ModifyOnlinePlayer(Hat_GhostPartyPlayer(Owner));
+	}
 }
 
 simulated event Destroyed()
@@ -60,7 +166,7 @@ simulated event Destroyed()
 		SendWarningMessage("["$self.Name$"/Destroyed] Pokemon Collision is destroyed for"@GetPlayerString(Owner)$".", Owner);
 	else
 		SendWarningMessage("["$self.Name$"/Destroyed] Pokemon Collision is destroyed.");
-	RestoreOnlinePlayerCollision();
+	RestoreActorsCollisionProperties();
 }
 
 static function bool IsPokemonMesh(SkeletalMeshComponent comp)
@@ -132,7 +238,7 @@ simulated function bool SetOwnerAsBase()
 	}
 	if (CollisionComponent == None)
 	{
-		RestoreOnlinePlayerCollision();
+		RestoreActorsCollisionProperties();
 		if (!bHidden)
 		{
 			SetHidden(true);
@@ -141,7 +247,7 @@ simulated function bool SetOwnerAsBase()
 	}
 	else
 	{
-		ModifyOnlinePlayerCollision();
+		ApplyOwnerCollisionProperties();
 		if (bHidden)
 		{
 			SetHidden(false);
@@ -156,7 +262,6 @@ simulated function bool SetOwnerAsBase()
 
 simulated event bool ShouldIgnoreBlockingBy(const Actor Other)
 {
-	local Name StateName;
 	if (Other == None)
 		return true;
 	if (Other == Owner)
@@ -171,27 +276,30 @@ simulated event bool ShouldIgnoreBlockingBy(const Actor Other)
 		return true;
 	if (Hat_GhostPartyPlayer(Owner) != None)
 	{
-		if (Hat_Player(Other) == None)
+		if (class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(Hat_Player(Other)) == None)
 			return true;
 		return false;
 	}
 	if (Hat_Player(Owner) == None)
 		return true;
+	if (Other.Physics == PHYS_RigidBody) //It's Rigid-body Actors' destiny to block each other, right? Well, Unreal Engine should still check for things like RBChannel and RBCollideWithChannels.
+		return false;
 	if (PathName(Other.Class) ~= "hatintimegamecontent.Hat_Vacuum")
 	{
 		if (Other.Physics != PHYS_Walking) //Rumbi is not on the ground.
 			return true;
-		StateName = Other.GetStateName();
-		if (StateName == 'HitWallSpin' || StateName == 'DamageFlip' || StateName == 'JumpForJoy') //Rumbi loves stucking in weird positions, so let's not block him when he's not actually on the ground.
-			return true;
-		return false;
+		switch(Other.GetStateName()) //Rumbi loves stucking in weird positions, so let's not block him when he's not actually on the ground.
+		{
+			case 'HitWallSpin':
+			case 'DamageFlip':
+			case 'JumpForJoy':
+				return true;
+			default:
+				return false;
+		}
 	}
 	if (Pawn(Other) != None)
 		return false;
-	//BELOW SHOULD BE TESTED!!!
-	if (Other.Physics == PHYS_RigidBody) //It's Rigid-body Actors' destiny to block each other, right? Well, Unreal Engine should still check for things like RBChannel and RBCollideWithChannels.
-		return false;
-	//ABOVE SHOULD BE TESTED!!!
 	return true;
 }
 
@@ -264,55 +372,6 @@ static function ModifyLocalPlayer(Hat_Player ply)
 		ply.IdleTime = 25.0;
 }
 
-simulated function ModifyOnlinePlayerCollision()
-{
-	local Array<string> StringArray;
-	if (Hat_GhostPartyPlayer(Owner) == None)
-		return;
-	if (!OnlinePlayerPropertiesModified)
-	{
-		OnlinePlayerbCollideActors = Owner.bCollideActors;
-		OnlinePlayerbBlockActors = Owner.bBlockActors;
-		OnlinePlayerbBlockPawns = Owner.bBlockPawns;
-		StringArray.AddItem("["$self.Name$"/ModifyOnlinePlayerCollision] Saved Collision properties of"@GetPlayerString(Owner)$". bCollideActors:"@OnlinePlayerbCollideActors$", bBlockActors:"@OnlinePlayerbBlockActors$", bBlockPawns:"@OnlinePlayerbBlockPawns$".");
-	}
-	if (Owner.bCollideActors != true || Owner.bBlockActors != true)
-	{
-		Owner.SetCollision(true, true, Owner.bIgnoreEncroachers);
-		StringArray.AddItem("["$self.Name$"/ModifyOnlinePlayerCollision] Set bCollideActors and bBlockActors to true for"@GetPlayerString(Owner)$".");
-	}
-	if (Owner.bBlockPawns != true)
-	{
-		Owner.bBlockPawns = true;
-		StringArray.AddItem("["$self.Name$"/ModifyOnlinePlayerCollision] Set bBlockPawns to true for"@GetPlayerString(Owner)$".");
-	}
-	OnlinePlayerPropertiesModified = true;
-	SendMessageArray(StringArray, Owner);
-}
-
-simulated function RestoreOnlinePlayerCollision()
-{
-	local Array<string> StringArray;
-	if (Hat_GhostPartyPlayer(Owner) != None && OnlinePlayerPropertiesModified)
-	{
-		if (Owner.bCollideActors != OnlinePlayerbCollideActors || Owner.bBlockActors != OnlinePlayerbBlockActors)
-		{
-			Owner.SetCollision(OnlinePlayerbCollideActors, OnlinePlayerbBlockActors, Owner.bIgnoreEncroachers);
-			StringArray.AddItem("["$self.Name$"/RestoreOnlinePlayerCollision] Restored Collision properties for"@GetPlayerString(Owner)$". bCollideActors:"@OnlinePlayerbCollideActors$", bBlockActors:"@OnlinePlayerbBlockActors$".");
-		}
-		if (Owner.bBlockPawns != OnlinePlayerbBlockPawns)
-		{
-			Owner.bBlockPawns = OnlinePlayerbBlockPawns;
-			StringArray.AddItem("["$self.Name$"/RestoreOnlinePlayerCollision] Restored bBlockPawns to"@OnlinePlayerbBlockPawns@"for"@GetPlayerString(Owner)$".");
-		}
-		SendMessageArray(StringArray, Owner);
-	}
-	OnlinePlayerPropertiesModified = false;
-	OnlinePlayerbCollideActors = false;
-	OnlinePlayerbBlockActors = false;
-	OnlinePlayerbBlockPawns = false;
-}
-
 static function SkeletalMeshComponent GetScooterMesh(Actor a)
 {
 	local Hat_StatusEffect_BadgeScooter ScooterStatus;
@@ -360,9 +419,9 @@ static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 		return None;
 	foreach a.ChildActors(class'Hat_RideablePokemon_Collision', ca)
 	{
-		if (ca == None || ca.IsPendingKill())
+		if (ca == None)
 			continue;
-		if (CollisionActor == None || CollisionActor.IsPendingKill())
+		if (CollisionActor == None)
 			CollisionActor = ca;
 		else
 			RemoveList.AddItem(ca);
@@ -370,10 +429,13 @@ static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 	for (i = 0; i < RemoveList.Length; i++)
 	{
 		if (RemoveList[i] != None)
-			RemoveList[i].Destroy();
+		{
+			if (!RemoveList[i].Destroy())
+				RemoveList[i].ShutDown();
+		}
 	}
 	RemoveList.Length = 0;
-	if (CollisionActor == None || CollisionActor.IsPendingKill())
+	if (CollisionActor == None)
 		return None;
 	return CollisionActor;
 }
@@ -388,7 +450,7 @@ static function bool DestroyCollisionActor(Actor a)
 		return false;
 	foreach a.ChildActors(class'Hat_RideablePokemon_Collision', ca)
 	{
-		if (ca == None || ca.IsPendingKill())
+		if (ca == None)
 			continue;
 		RemoveList.AddItem(ca);
 	}
@@ -396,8 +458,10 @@ static function bool DestroyCollisionActor(Actor a)
 	{
 		if (RemoveList[i] != None)
 		{
-			RemoveList[i].Destroy();
-			b = true;
+			if (RemoveList[i].Destroy())
+				b = true;
+			else
+				RemoveList[i].ShutDown();
 		}
 	}
 	RemoveList.Length = 0;

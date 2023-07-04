@@ -28,25 +28,15 @@ static function bool IsBaseGameClassPackage(Name PackageName)
 	switch(locs(PackageName))
 	{
 		case "core":
-			return true;
 		case "engine":
-			return true;
 		case "gameframework":
-			return true;
 		case "hatintimeeditor":
-			return true;
 		case "hatintimegame":
-			return true;
 		case "hatintimegamecontent":
-			return true;
 		case "ipdrv":
-			return true;
 		case "onlinesubsystemsteamworks":
-			return true;
 		case "unrealed":
-			return true;
 		case "windrv":
-			return true;
 		default:
 			return false;
 	}
@@ -449,7 +439,7 @@ simulated function bool CleanUpLocalPlayers()
 	ShouldLocalMusicBeDisabled = true;
 	for (i = CurrentPlayers.Length-1; i > -1; i--)
 	{
-		if (CurrentPlayers[i] == None || CurrentPlayers[i].IsPendingKill())
+		if (CurrentPlayers[i] == None)
 		{
 			CurrentPlayers.Remove(i, 1);
 			continue;
@@ -479,14 +469,12 @@ simulated function bool CleanUpOnlinePlayers()
 	f = GetFurretMusicListeningRadius();
 	for (i = RideablePokemonGppStates.Length-1; i > -1; i--)
 	{
-		if (RideablePokemonGppStates[i] == None || RideablePokemonGppStates[i].IsPendingKill() || RideablePokemonGppStates[i].IsLocalPlayer())
+		if (RideablePokemonGppStates[i] == None)
 		{
 			RideablePokemonGppStates.Remove(i, 1);
 			continue;
 		}
 		if (!ShouldOnlineMusicBeDisabled || f <= 0.0)
-			continue;
-		if (RideablePokemonGppStates[i].GetNetworkingIDString() == "")
 			continue;
 		if (!RideablePokemonGppStates[i].UnreliableState.IsOnScooter)
 			continue;
@@ -560,7 +548,7 @@ simulated function RemoveFurretMusic()
 
 simulated function AddGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 {
-	if (PlayerState == None || PlayerState.IsPendingKill() || PlayerState.IsLocalPlayer())
+	if (PlayerState == None)
 		return;
 	if (RideablePokemonGppStates.Find(PlayerState) == INDEX_NONE)
 		RideablePokemonGppStates.AddItem(PlayerState);
