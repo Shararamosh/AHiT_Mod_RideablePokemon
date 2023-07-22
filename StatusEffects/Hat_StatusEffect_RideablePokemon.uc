@@ -38,6 +38,11 @@ var protectedwrite transient bool IsWireframe, IsMuddy;
 var protectedwrite transient class<Hat_StatusEffect_Muddy> CurrentMuddyStatus;
 var const RBCollisionChannelContainer ScooterCollisionContainer;
 
+static function bool IsCollisionEnabled()
+{
+	return class'RideablePokemon_Script'.static.IsCollisionEnabled();
+}
+
 static function BattleActionAnims GetBattleActionAnims()
 {
 	local BattleActionAnims baa;
@@ -86,22 +91,22 @@ static function bool MaintainScooterMesh(Actor InActor, SkeletalMeshComponent In
 	return true;
 }
 
-final static function InitScooterMeshProperties(Actor a, SkeletalMeshComponent comp)
+final static function InitScooterMeshProperties(Actor a, SkeletalMeshComponent comp, optional bool NoCollision)
 {
 	local WorldInfo wi;
 	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp);
 	class'Shara_SkinColors_Tools_Short_RPS'.static.ConditionalInitMaterialInstancesMesh(comp);
 	wi = class'WorldInfo'.static.GetWorldInfo();
 	SetPokemonTimeAfterSpawn(comp, wi != None ? wi.TimeSeconds : 0.0);
-	SetScooterMeshCollisionProperties(comp);
+	SetScooterMeshCollisionProperties(comp, NoCollision);
 }
 
-final static function SetScooterMeshCollisionProperties(SkeletalMeshComponent comp)
+final static function SetScooterMeshCollisionProperties(SkeletalMeshComponent comp, optional bool NoCollision)
 {
 	if (comp == None)
 		return;
 	comp.CanBlockCamera = false;
-	comp.SetActorCollision(true, true, comp.AlwaysCheckCollision);
+	comp.SetActorCollision(NoCollision ? false : IsCollisionEnabled(), NoCollision ? false : IsCollisionEnabled(), comp.AlwaysCheckCollision);
 	comp.SetTraceBlocking(true, true);
 	comp.SetBlockRigidBody(true);
 	comp.CanBeStoodOn = true;
@@ -129,7 +134,7 @@ final static function AnimateScooter(SkeletalMeshComponent comp)
 	if (comp == None)
 		return;
 	if (comp.SkeletalMesh != default.ScooterMesh)
-		comp.SetSkeletalMesh(default.ScooterMesh, true);
+		comp.SetSkeletalMesh(default.ScooterMesh);
 	if (default.ScooterAnimSet == None)
 	{
 		if (comp.AnimSets.Length != 0)
@@ -193,12 +198,6 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 	p = Hat_PawnCombat(a);
 	if (p == None)
 		return false;
-	if (class'GameMod'.static.GetConfigValue(class'RideablePokemon_Script', 'mod_disabled') != 0)
-	{
-		if (DoSendMessage)
-			p.ClientMessage("You can't ride"@s@"because mod is disabled.");
-		return false;
-	}
 	ply = Hat_Player(p);
 	if (ply == None)
 	{
@@ -349,13 +348,13 @@ final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 	return None;
 }
 
-final simulated function SaveActorProperties(Actor a)
+final simulated function int SaveActorProperties(Actor a)
 {
 	local int i;
 	local ActorProperties ap;
 	local Pawn p;
 	if (a == None)
-		return;
+		return -1;
 	ap.PropertiesOwner = a;
 	p = Pawn(a);
 	if (p != None)
@@ -367,7 +366,11 @@ final simulated function SaveActorProperties(Actor a)
 	if (i > -1)
 		ActorsProperties[i] = ap;
 	else
+	{
 		ActorsProperties.AddItem(ap);
+		i = ActorsProperties.Length-1;
+	}
+	return i;
 }
 
 final simulated function RestoreActorProperties(Actor a)
@@ -548,6 +551,10 @@ simulated function OnAdded(Actor a)
 		PlayerAnimationType = Type_Sandmobile;
 	}
 	SaveActorProperties(ply);
+	if (!ply.bCanBeBaseForPawns && IsCollisionEnabled())
+		ply.bCanBeBaseForPawns = true;
+	if (ply.IdleTime <= 15.0)
+		ply.IdleTime = 25.0;
 	ply.AccelRate = 1500.0;
 	ply.VehicleProperties.VehicleModeActive = true;
 	ply.VehicleProperties.GroundTranslation = 0.0;
@@ -583,24 +590,41 @@ simulated function OnAdded(Actor a)
 		ply.AttachComponent(EngineDrivingSound);
 	if (WindSound != None)
 		ply.AttachComponent(WindSound);
-	class'Hat_RideablePokemon_Collision'.static.SpawnOrGetCollisionActor(ply);
 	class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"RideStart", ply, , ModInstance);
 }
 
 simulated function bool Update(float delta)
 {
 	local float PrevDuration;
-	local int LastTotal;
+	local int i;
 	local Hat_Player ply;
 	local Hat_PlayerController hpc;
 	local bool ShouldPlayLoopAnimation;
-	IterateActorsProperties();
+	i = IterateActorsProperties();
 	ply = Hat_Player(Owner);
 	if (ply == None || ply.Mesh == None)
 	{
 		RemoveStatusEffect(Owner, class'Hat_StatusEffect_BadgeScooter', true);
 		return false;
 	}
+	if (i < 0)
+		i = SaveActorProperties(ply);
+	if (IsCollisionEnabled())
+	{
+		if (!ply.bCanBeBaseForPawns)
+			ply.bCanBeBaseForPawns = true;
+		if (ScooterMeshComp != None && (!ScooterMeshComp.CollideActors || !ScooterMeshComp.BlockActors))
+			ScooterMeshComp.SetActorCollision(true, true, ScooterMeshComp.AlwaysCheckCollision);
+	}
+	else
+	{
+		if (ply.bCanBeBaseForPawns && !ActorsProperties[i].bCanBeBaseForPawns)
+			ply.bCanBeBaseForPawns = false;
+		if (ScooterMeshComp != None && (ScooterMeshComp.CollideActors || ScooterMeshComp.BlockActors))
+			ScooterMeshComp.SetActorCollision(false, false, ScooterMeshComp.AlwaysCheckCollision);
+	}
+	if (ply.IdleTime <= 15.0)
+		ply.IdleTime = 25.0;
 	//New Scale stuff below.
 	if (ply.Mesh.Scale != 1.0)
 		ply.Mesh.SetScale(1.0);
@@ -664,10 +688,10 @@ simulated function bool Update(float delta)
 	}
 	if (StartAirYaw && ply.Physics == PHYS_Falling)
 	{
-		LastTotal = TotalAirYaw;
+		i = TotalAirYaw;
 		TotalAirYaw += ply.Rotation.Yaw-LastAirYaw;
 		LastAirYaw = ply.Rotation.Yaw;
-		if (Abs(TotalAirYaw) > 65536 && Abs(LastTotal) <= 65536)
+		if (Abs(TotalAirYaw) > 65536 && Abs(i) <= 65536)
 		{
 			hpc = Hat_PlayerController(class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(ply));
 			if (hpc != None)
@@ -914,7 +938,6 @@ final static function CopyParentMeshMaterials(MeshComponent ParentMesh, MeshComp
 simulated function OnRemoved(Actor a)
 {
 	local Hat_Player ply;
-	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(a);
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
@@ -1176,8 +1199,6 @@ final static function ScarePlayer(Hat_Player ply)
 	if (ply.IsBlinking())
 		return;
 	if (ply.IsTaunting())
-		return;
-	if (Hat_RideablePokemon_Collision(ply.Base) != None)
 		return;
 	if (ply.HasStatusEffect(class'Hat_StatusEffect_Stoning', true))
 		return;

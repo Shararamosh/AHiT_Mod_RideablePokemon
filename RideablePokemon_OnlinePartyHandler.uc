@@ -5,8 +5,6 @@ class RideablePokemon_OnlinePartyHandler extends Object
 */
 
 var private const Name MainChannel;
-var const Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects; //Available through config menu.
-var const Array<class<Hat_StatusEffect_RideablePokemon>> SpecialPokemonEffects; //Available only using special Sprint Hat flairs.
 
 static function SendOnlinePartyCommand(string InCommand, optional Pawn SendingPlayer, optional Hat_GhostPartyPlayerStateBase Receiver, optional out RideablePokemon_Script ModInstance)
 {
@@ -21,7 +19,7 @@ static function SendOnlinePartyCommandWithModInstance(string Command, RideablePo
 	if (Command == "" || ModInstance == None)
 		return;
 	ModInstance.SendOnlinePartyCommand(Command, default.MainChannel, SendingPlayer, Receiver);
-	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/SendOnlinePartyCommandWithModInstance] Sent Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(SendingPlayer)$". Receiver:"@class'RideablePokemon_Script'.static.GetPlayerString(Receiver)$". TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$".");
+	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/SendOnlinePartyCommandWithModInstance] Sent Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(SendingPlayer)$". Receiver:"@class'RideablePokemon_Script'.static.GetPlayerString(Receiver)$"."$(ModInstance.WorldInfo != None ? " TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$"." : ""));
 }
 
 static function HandleOnlinePartyCommand(string Command, Name CommandChannel, Hat_GhostPartyPlayerStateBase Sender, RideablePokemon_Script ModInstance)
@@ -30,7 +28,7 @@ static function HandleOnlinePartyCommand(string Command, Name CommandChannel, Ha
 	local string s;
 	if (Sender == None || Command == "" || CommandChannel != default.MainChannel || ModInstance == None)
 		return;
-	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/HandleOnlinePartyCommand] Received Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(Sender)$". TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$".");
+	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/HandleOnlinePartyCommand] Received Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(Sender)$"."$(ModInstance.WorldInfo != None ? " TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$"." : ""));
 	switch(locs(Command))
 	{
 		case "pokemonridestartquery":
@@ -44,55 +42,80 @@ static function HandleOnlinePartyCommand(string Command, Name CommandChannel, Ha
 	}
 }
 
+static function Array<class<Hat_StatusEffect_RideablePokemon>> GetStandardPokemonStatusEffects() //Pokemon avaialble to be used for any mod Sprint Hat Flair. Using National Pokedex order.
+{
+	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableNidoqueen');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableParasect');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableKangaskhan');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableSnorlax');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableFurret');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableOctillery_M');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableFlygon');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableArmaldo');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGastrodon_WS');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGastrodon_ES');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGarchomp_M');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGogoat');
+	return PokemonEffects;
+}
+
+static function Array<class<Hat_StatusEffect_RideablePokemon>> GetSpecialPokemonStatusEffects() //Pokemon avaialble only to specific mod Sprint Hat Flairs. Using National Pokedex order.
+{
+	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableLeafeon');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGlaceon');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGiratina');
+	return PokemonEffects;
+}
+
 static function class<Hat_StatusEffect_RideablePokemon> GetPokemonStatusEffectByCommand(string Command, optional out string PokemonName)
 {
 	local int i;
 	local string s;
-	for (i = 0; i < default.PokemonEffects.Length; i++)
+	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
+	PokemonEffects = GetStandardPokemonStatusEffects(); //Pokemon avaialble to be used for any mod Sprint Hat Flair.
+	for (i = 0; i < PokemonEffects.Length; i++)
 	{
-		s = locs(default.PokemonEffects[i].static.GetLocalName());
+		s = locs(PokemonEffects[i].static.GetLocalName());
 		if (Left(locs(Command), Len(s)) == s) //Check if command has Pokemon name at the very beginning.
 		{
 			PokemonName = s;
-			return default.PokemonEffects[i];
+			return PokemonEffects[i];
 		}
 	}
-	for (i = 0; i < default.SpecialPokemonEffects.Length; i++)
+	PokemonEffects = GetSpecialPokemonStatusEffects(); //Pokemon avaialble only to specific mod Sprint Hat Flairs.
+	for (i = 0; i < PokemonEffects.Length; i++)
 	{
-		s = locs(default.SpecialPokemonEffects[i].static.GetLocalName());
+		s = locs(PokemonEffects[i].static.GetLocalName());
 		if (Left(locs(Command), Len(s)) == s) //Check if command has Pokemon name at the very beginning.
 		{
 			PokemonName = s;
-			return default.SpecialPokemonEffects[i];
+			return PokemonEffects[i];
 		}
 	}
 	return None;
 }
 
-static function UpdateOnlinePokemonMesh(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect)
+static function UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect)
 {
-	local Hat_GhostPartyPlayer gpp;
-	if (Sender == None || PokemonEffect == None)
-		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
-	if (gpp == None)
+	if (gpp == None || PokemonEffect == None)
 		return;
 	if (gpp.ScooterMesh == None)
 		gpp.ScooterMesh = PokemonEffect.static.CreateScooterMesh(gpp, gpp.SkeletalMeshComponent);
     else
 		PokemonEffect.static.MaintainScooterMesh(gpp, gpp.SkeletalMeshComponent, gpp.ScooterMesh);
-	class'Hat_RideablePokemon_Collision'.static.ModifyOnlinePlayer(gpp);
+	class'Hat_RideablePokemon_Collision'.static.SpawnOrGetCollisionActor(gpp);
 }
 
-static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect)
+static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect)
 {
-	local Hat_GhostPartyPlayer gpp;
 	local float f;
 	local Vector v;
-	if (Sender == None || PokemonEffect == None)
-		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
 	if (gpp == None)
+		return;
+	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(gpp);
+	if (PokemonEffect == None)
 		return;
 	if (!gpp.PlayerState.UnreliableState.IsOnScooter && gpp.ScooterMesh != None && gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
 	{
@@ -124,44 +147,32 @@ static function RestoreOnlinePlayerMeshValuesFromScooter(Hat_GhostPartyPlayer gp
 	gpp.SkeletalMeshComponent.SetScale3D(v);
 }
 
-static function SetOnlinePokemonBattleAction(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, Name AnimName)
+static function SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, Name AnimName)
 {
-	if (Sender == None || PokemonEffect == None)
+	if (gpp == None || PokemonEffect == None)
 		return;
-	PokemonEffect.static.PerformOnlineScooterHonk(Hat_GhostPartyPlayer(Sender.GhostActor), AnimName);
+	PokemonEffect.static.PerformOnlineScooterHonk(gpp, AnimName);
 }
 
-static function SetOnlinePokemonHealth(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, int h)
+static function SetOnlinePokemonHealth(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, int h)
 {
-	local Hat_GhostPartyPlayer gpp;
-	if (Sender == None || PokemonEffect == None)
-		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
-	if (gpp == None)
+	if (gpp == None || PokemonEffect == None)
 		return;
 	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
 		PokemonEffect.static.SetPokemonHealth(gpp.ScooterMesh, h);
 }
 
-static function SetOnlinePokemonWireframe(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsWireframe)
+static function SetOnlinePokemonWireframe(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsWireframe)
 {
-	local Hat_GhostPartyPlayer gpp;
-	if (Sender == None || PokemonEffect == None)
-		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
-	if (gpp == None)
+	if (gpp == None || PokemonEffect == None)
 		return;
 	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
 		IsWireframe ? PokemonEffect.static.SetPokemonWireframeMaterials(gpp.ScooterMesh) : PokemonEffect.static.SetPokemonStandardMaterials(gpp.ScooterMesh);
 }
 
-static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsMuddy)
+static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsMuddy)
 {
-	local Hat_GhostPartyPlayer gpp;
-	if (Sender == None || PokemonEffect == None)
-		return;
-	gpp = Hat_GhostPartyPlayer(Sender.GhostActor);
-	if (gpp == None)
+	if (gpp == None || PokemonEffect == None)
 		return;
 	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
 		PokemonEffect.static.SetPokemonMuddyEffect(gpp.ScooterMesh, IsMuddy);
@@ -173,39 +184,37 @@ static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostPartyPlayer
 		return;
 	if (Left(MinusedCommand, 6) ~= "action")
 	{
-		SetOnlinePokemonBattleAction(Sender, PokemonEffect, Name(Right(MinusedCommand, Len(MinusedCommand)-6)));
+		SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, Name(Right(MinusedCommand, Len(MinusedCommand)-6)));
 		return;
 	}
 	switch(locs(MinusedCommand))
 	{
 		case "ridestart":
 			ModInstance.AddGppState(Sender);
-			UpdateOnlinePokemonMesh(Sender, PokemonEffect);
-			class'Hat_RideablePokemon_Collision'.static.SpawnOrGetCollisionActor(Sender.GhostActor);
+			UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect);
 			break;
 		case "ridestop":
-			class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(Sender.GhostActor);
-			DetachOnlinePokemonMesh(Sender, PokemonEffect);
+			DetachOnlinePokemonMesh(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect);
 			ModInstance.RemoveGppState(Sender);
 			break;
 		case "wireframe":
-			SetOnlinePokemonWireframe(Sender, PokemonEffect, true);
+			SetOnlinePokemonWireframe(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, true);
 			break;
 		case "standard":
-			SetOnlinePokemonWireframe(Sender, PokemonEffect, false);
+			SetOnlinePokemonWireframe(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, false);
 			break;
 		case "muddy":
-			SetOnlinePokemonMuddy(Sender, PokemonEffect, true);
+			SetOnlinePokemonMuddy(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, true);
 			break;
 		case "clean":
-			SetOnlinePokemonMuddy(Sender, PokemonEffect, false);
+			SetOnlinePokemonMuddy(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, false);
 			break;
 		case "idle":
-			SetOnlinePokemonBattleAction(Sender, PokemonEffect, '');
+			SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, '');
 			break;
 		default:
 			if (Right(MinusedCommand, 6) ~= "health")
-				SetOnlinePokemonHealth(Sender, PokemonEffect, int(Left(MinusedCommand, Len(MinusedCommand)-6)));
+				SetOnlinePokemonHealth(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, int(Left(MinusedCommand, Len(MinusedCommand)-6)));
 			break;
 	}
 }
@@ -240,19 +249,4 @@ static function CondSendRideablePokemon(RideablePokemon_Script ModInstance, opti
 defaultproperties
 {
 	MainChannel = "RideablePokemon"
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableNidoqueen')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableParasect')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableKangaskhan')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableSnorlax')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableFurret')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableOctillery_M')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableFlygon')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableArmaldo')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableGastrodon_WS')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableGastrodon_ES')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableGarchomp_M')
-	PokemonEffects.Add(class'Hat_StatusEffect_RideableGogoat')
-	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableLeafeon'
-	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableGlaceon')
-	SpecialPokemonEffects.Add(class'Hat_StatusEffect_RideableGiratina')
 }

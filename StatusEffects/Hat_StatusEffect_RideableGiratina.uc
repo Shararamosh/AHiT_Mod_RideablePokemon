@@ -19,7 +19,7 @@ static function bool MaintainScooterMesh(Actor InActor, SkeletalMeshComponent In
 {
 	if (!Super.MaintainScooterMesh(InActor, InComponent, MeshComponent))
 		return false;
-	InitScooterMeshProperties(InActor, AddGiratinaAttachment(MeshComponent));
+	InitScooterMeshProperties(InActor, AddGiratinaAttachment(MeshComponent), true);
 	return true;
 }
 

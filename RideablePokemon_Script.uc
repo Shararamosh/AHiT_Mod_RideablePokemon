@@ -4,8 +4,12 @@ class RideablePokemon_Script extends GameMod
 var transient private Array<Hat_GhostPartyPlayerStateBase> RideablePokemonGppStates;
 var transient private Hat_MusicNodeBlend_Dynamic FurretMusicTrack;
 var transient private Array<Hat_Player> CurrentPlayers;
-var const array<class<Hat_CosmeticItemQualityInfo>> PokemonFlairs;
 var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision, NotifiedAboutSelect;
+
+static function bool IsCollisionEnabled()
+{
+	return (GetConfigValue(default.Class, 'EnableCollision') == 0);
+}
 
 static function string GetClassPathName(class<Object> c)
 {
@@ -181,7 +185,9 @@ event OnConfigChanged(Name ConfigName)
 static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(optional out int CanNotify)
 {
 	local int n;
-	n = Clamp(GetConfigValue(default.Class, 'PokemonSelect'), 0, class'RideablePokemon_OnlinePartyHandler'.default.PokemonEffects.Length); //Gotta make sure we won't end up outside Pokemon list.
+	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
+	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetStandardPokemonStatusEffects();
+	n = Clamp(GetConfigValue(default.Class, 'PokemonSelect'), 0, PokemonEffects.Length); //Gotta make sure we won't end up outside Pokemon list.
 	if (GetConfigValue(default.Class, 'NotifiedAboutSelect') != 1)
 		CanNotify = 1;
 	else
@@ -193,7 +199,7 @@ static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(opt
 		CanNotify = 0;
 		SaveConfigValue(default.Class, 'NotifiedAboutSelect', 1);
 	}
-	return class'RideablePokemon_OnlinePartyHandler'.default.PokemonEffects[n-1]; //Use Pokedex-sorted list of available Pokemon.
+	return PokemonEffects[n-1]; //Use Pokedex-sorted list of available Pokemon.
 }
 
 function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect, optional out float OverrideDuration)
@@ -215,16 +221,6 @@ function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect,
 	if (ply == None)
 	{
 		StatusEffect = None;
-		return;
-	}
-	if (mod_disabled != 0)
-	{
-		if (HasNonVanillaScooterBadge(ply))
-			StatusEffect = class'Hat_StatusEffect_BadgeScooter';
-		else
-			StatusEffect = class<Hat_StatusEffect_BadgeScooter>(class'Hat_ClassHelper'.static.GetScriptClass("DyeableScooter.Hat_StatusEffect_DyeableScooter"));
-		if (StatusEffect == None)
-			StatusEffect = class'Hat_StatusEffect_BadgeScooter';
 		return;
 	}
 	if (!PokemonStatus.default.TiedToFlair && !PokemonStatus.default.DebugOnly)
@@ -284,11 +280,57 @@ static function bool HasNonVanillaScooterBadge(Hat_Player ply)
 	return false;
 }
 
+static function RemoveModStatusEffects()
+{
+	local WorldInfo wi;
+	local Hat_Player ply;
+	wi = class'WorldInfo'.static.GetWorldInfo();
+	if (wi == None)
+		return;
+	foreach wi.AllPawns(class'Hat_Player', ply)
+	{
+		if (ply != None)
+			ply.RemoveStatusEffect(class'Hat_StatusEffect_RideablePokemon', true);
+	}
+}
+
+static function RemoveModActors()
+{
+	local int i;
+	local WorldInfo wi;
+	local Hat_RideablePokemon_Collision CollisionActor;
+	local Array<Hat_RideablePokemon_Collision> RemoveList;
+	wi = class'WorldInfo'.static.GetWorldInfo();
+	if (wi == None)
+		return;
+	foreach wi.AllActors(class'Hat_RideablePokemon_Collision', CollisionActor)
+	{
+		if (CollisionActor != None)
+			RemoveList.AddItem(CollisionActor);
+	}
+	for (i = 0; i < RemoveList.Length; i++)
+	{
+		if (RemoveList[i] == None)
+			continue;
+		if (!RemoveList[i].Destroy())
+			RemoveList[i].ShutDown();
+	}
+	RemoveList.Length = 0;
+}
+
 static function RemoveModItems()
 {
 	local Array<class<Object>> ModItems;
 	local Array<bool> BoolArray;
-	ModItems = default.PokemonFlairs;
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_SafariHat');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_Substitute');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_TrapperHat');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_DawnHat');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_WoolKnit');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_GlaceonCap');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap');
 	BoolArray.Length = ModItems.Length;
 	HandleAllLoadoutItemClasses(ModItems, BoolArray);
 }
@@ -365,19 +407,10 @@ event OnModLoaded()
 
 event OnModUnloaded()
 {
-	local Hat_Player ply;
-	local WorldInfo wi;
-	wi = (WorldInfo != None ? WorldInfo : class'WorldInfo'.static.GetWorldInfo());
-	if (wi != None)
-	{
-		foreach wi.AllPawns(class'Hat_Player', ply)
-		{
-			if (ply != None)
-				ply.RemoveStatusEffect(class'Hat_StatusEffect_RideablePokemon', true);
-		}
-	}
+	RemoveModStatusEffects();
 	RemoveFurretMusic();
 	RemoveModItems();
+	RemoveModActors();
 }
 
 event OnHookedActorSpawn(Object NewActor, Name Identifier)
@@ -423,13 +456,12 @@ simulated event Tick(float DeltaTime)
 	local bool ShouldLocalMusicBeDisabled, ShouldOnlineMusicBeDisabled;
 	ShouldLocalMusicBeDisabled = CleanUpLocalPlayers();
 	ShouldOnlineMusicBeDisabled = CleanUpOnlinePlayers();
-	if (WorldInfo == None || WorldInfo.Pauser == None)
-	{
-		if (ShouldLocalMusicBeDisabled && ShouldOnlineMusicBeDisabled)
-			StopFurretMusic();
-		else
-			StartFurretMusic();
-	}
+	if (WorldInfo != None && WorldInfo.Pauser != None) //Game is paused.
+		return;
+	if (ShouldLocalMusicBeDisabled && ShouldOnlineMusicBeDisabled)
+		StopFurretMusic();
+	else
+		StartFurretMusic();
 }
 
 simulated function bool CleanUpLocalPlayers()
@@ -453,7 +485,7 @@ simulated function bool CleanUpLocalPlayers()
 		if (VSizeSq2D(CurrentPlayers[i].Velocity) > 0.25*CurrentPlayers[i].GroundSpeed*CurrentPlayers[i].GroundSpeed && Abs(CurrentPlayers[i].VehicleProperties.Throttle) > 0.1)
 			ShouldLocalMusicBeDisabled = false;
 	}
-	if (mod_disabled != 0 || FurretMusic == 1)
+	if (FurretMusic == 1)
 		return true;
 	return ShouldLocalMusicBeDisabled;
 }
@@ -589,13 +621,4 @@ static function CloseSubtitlesForHUD(Hat_HUD H)
 defaultproperties
 {
 	bAlwaysTick = true
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_SafariHat')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_Substitute')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_TrapperHat')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_DawnHat')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_WoolKnit')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_GlaceonCap')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat')
-	PokemonFlairs.Add(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap')
 }
