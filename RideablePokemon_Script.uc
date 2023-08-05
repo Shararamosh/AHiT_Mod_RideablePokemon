@@ -1,10 +1,53 @@
 class RideablePokemon_Script extends GameMod
 	config(Mods);
 
+enum NotifyType
+{
+	Type_None,
+	Type_Select
+};
+
 var transient private Array<Hat_GhostPartyPlayerStateBase> RideablePokemonGppStates;
 var transient private Hat_MusicNodeBlend_Dynamic FurretMusicTrack;
 var transient private Array<Hat_Player> CurrentPlayers;
-var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision, NotifiedAboutSelect;
+var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision;
+
+static function bool UpdatePokemonSelectNotifyLevelBit() //Returns true if level bit was less than 1 and subtitle message should be displayed.
+{
+	local int i;
+	local Hat_SaveGame_Base sg;
+	sg = class'Hat_SaveBitHelper'.static.GetSaveGame();
+	if (sg == None)
+		return false;
+	i = class'Hat_SaveBitHelper_Base'.static.GetLevelBits("pokemonselectnotify", "rideablepokemon", sg);
+	if (i < 1)
+	{
+		class'Hat_SaveBitHelper_Base'.static.SetLevelBits("pokemonselectnotify", 1, "rideablepokemon", sg);
+		return true;
+	}
+	if (i != 1)
+		class'Hat_SaveBitHelper_Base'.static.SetLevelBits("pokemonselectnotify", 1, "rideablepokemon", sg);
+	return false;
+}
+
+static function RemoveModLevelBits()
+{
+	RemovePokemonSelectNotifyLevelBit();
+}
+
+static function bool RemovePokemonSelectNotifyLevelBit() //Returns true if level bit was not equal to 0.
+{
+	local Hat_SaveGame_Base sg;
+	sg = class'Hat_SaveBitHelper'.static.GetSaveGame();
+	if (sg == None)
+		return false;
+	if (class'Hat_SaveBitHelper_Base'.static.GetLevelBits("pokemonselectnotify", "rideablepokemon", sg) != 0)
+	{
+		class'Hat_SaveBitHelper_Base'.static.SetLevelBits("pokemonselectnotify", 0, "rideablepokemon", sg);
+		return true;
+	}
+	return false;
+}
 
 static function bool IsCollisionEnabled()
 {
@@ -173,32 +216,18 @@ static function bool IsDev()
 	return false;
 }
 
-event OnConfigChanged(Name ConfigName)
-{
-	if (ConfigName == 'PokemonSelect' && NotifiedAboutSelect != 1)
-	{
-		NotifiedAboutSelect = 1;
-		SaveConfigValue(self.Class, 'NotifiedAboutSelect', 1);
-	}
-}
-
-static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(optional out int CanNotify)
+static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(optional out NotifyType nt)
 {
 	local int n;
 	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
 	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetStandardPokemonStatusEffects();
 	n = Clamp(GetConfigValue(default.Class, 'PokemonSelect'), 0, PokemonEffects.Length); //Gotta make sure we won't end up outside Pokemon list.
-	if (GetConfigValue(default.Class, 'NotifiedAboutSelect') != 1)
-		CanNotify = 1;
+	if (UpdatePokemonSelectNotifyLevelBit())
+		nt = Type_Select;
 	else
-		CanNotify = 0;
+		nt = Type_None;
 	if (n == 0)
 		return None; //Otherwise use Pokemon tied to flair.
-	if (CanNotify > 0)
-	{
-		CanNotify = 0;
-		SaveConfigValue(default.Class, 'NotifiedAboutSelect', 1);
-	}
 	return PokemonEffects[n-1]; //Use Pokedex-sorted list of available Pokemon.
 }
 
@@ -207,7 +236,7 @@ function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect,
 	local class<Hat_StatusEffect_RideablePokemon> PokemonStatus, NewPokemonStatus;
 	local Hat_PawnCombat p;
 	local Hat_Player ply;
-	local int ShouldNotify;
+	local NotifyType nt;
 	local bool IsPredefined;
 	PokemonStatus = class<Hat_StatusEffect_RideablePokemon>(StatusEffect);
 	if (PokemonStatus == None)
@@ -223,14 +252,11 @@ function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect,
 		StatusEffect = None;
 		return;
 	}
-	if (!PokemonStatus.default.TiedToFlair && !PokemonStatus.default.DebugOnly)
+	if (!PokemonStatus.static.IsTiedToFlair() && !PokemonStatus.static.IsDebugOnly())
 	{
-		NewPokemonStatus = GetPokemonFromConfig(ShouldNotify);
-		if (ShouldNotify > 0)
-		{
+		NewPokemonStatus = GetPokemonFromConfig(nt);
+		if (nt == Type_Select)
 			ShowSubtitleForPlayer(class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(ply), "RideablePokemon|ConfigNotify|system");
-			SaveConfigValue(self.Class, 'NotifiedAboutSelect', 1);
-		}
 		if (NewPokemonStatus != None && NewPokemonStatus.static.CanRidePokemon(ply, true, false))
 		{
 			PokemonStatus = NewPokemonStatus;
@@ -411,6 +437,7 @@ event OnModUnloaded()
 	RemoveFurretMusic();
 	RemoveModItems();
 	RemoveModActors();
+	RemoveModLevelBits();
 }
 
 event OnHookedActorSpawn(Object NewActor, Name Identifier)
@@ -454,17 +481,21 @@ simulated function float GetFurretMusicListeningRadius()
 simulated event Tick(float DeltaTime)
 {
 	local bool ShouldLocalMusicBeDisabled, ShouldOnlineMusicBeDisabled;
-	ShouldLocalMusicBeDisabled = CleanUpLocalPlayers();
-	ShouldOnlineMusicBeDisabled = CleanUpOnlinePlayers();
 	if (WorldInfo != None && WorldInfo.Pauser != None) //Game is paused.
+	{
+		CleanUpLocalPlayers(true);
+		CleanUpOnlinePlayers(true);
 		return;
+	}
+	ShouldLocalMusicBeDisabled = CleanUpLocalPlayers(false);
+	ShouldOnlineMusicBeDisabled = CleanUpOnlinePlayers(false);
 	if (ShouldLocalMusicBeDisabled && ShouldOnlineMusicBeDisabled)
 		StopFurretMusic();
 	else
 		StartFurretMusic();
 }
 
-simulated function bool CleanUpLocalPlayers()
+simulated function bool CleanUpLocalPlayers(bool IsGamePaused)
 {
 	local int i;
 	local bool ShouldLocalMusicBeDisabled;
@@ -476,13 +507,15 @@ simulated function bool CleanUpLocalPlayers()
 			CurrentPlayers.Remove(i, 1);
 			continue;
 		}
+		if (IsGamePaused)
+			continue;
 		if (!ShouldLocalMusicBeDisabled)
 			continue;
 		if (class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(CurrentPlayers[i]) == None)
 			continue;
 		if (Hat_StatusEffect_RideableFurret(CurrentPlayers[i].GetStatusEffect(class'Hat_StatusEffect_RideableFurret', false)) == None)
 			continue;
-		if (VSizeSq2D(CurrentPlayers[i].Velocity) > 0.25*CurrentPlayers[i].GroundSpeed*CurrentPlayers[i].GroundSpeed && Abs(CurrentPlayers[i].VehicleProperties.Throttle) > 0.1)
+		if (class'Hat_StatusEffect_RideablePokemon'.static.AllowLocalPlayerSpeedDustParticle(CurrentPlayers[i]))
 			ShouldLocalMusicBeDisabled = false;
 	}
 	if (FurretMusic == 1)
@@ -490,13 +523,12 @@ simulated function bool CleanUpLocalPlayers()
 	return ShouldLocalMusicBeDisabled;
 }
 
-simulated function bool CleanUpOnlinePlayers()
+simulated function bool CleanUpOnlinePlayers(bool IsGamePaused)
 {
 	local int i, j;
 	local float f;
 	local bool ShouldOnlineMusicBeDisabled;
 	local Hat_GhostPartyPlayer gpp;
-	local class<Hat_Player> PlayerClass;
 	ShouldOnlineMusicBeDisabled = true;
 	f = GetFurretMusicListeningRadius();
 	for (i = RideablePokemonGppStates.Length-1; i > -1; i--)
@@ -506,6 +538,8 @@ simulated function bool CleanUpOnlinePlayers()
 			RideablePokemonGppStates.Remove(i, 1);
 			continue;
 		}
+		if (IsGamePaused)
+			continue;
 		if (!ShouldOnlineMusicBeDisabled || f <= 0.0)
 			continue;
 		if (!RideablePokemonGppStates[i].UnreliableState.IsOnScooter)
@@ -517,10 +551,7 @@ simulated function bool CleanUpOnlinePlayers()
 			continue;
 		if (gpp.ScooterMesh.SkeletalMesh != class'Hat_StatusEffect_RideableFurret'.default.ScooterMesh)
 			continue;
-		PlayerClass = gpp.PlayerVisualClass;
-		if (PlayerClass == None)
-			PlayerClass = class'Hat_Player_HatKid';
-		if (VSizeSq2D(gpp.Velocity) <= 0.25*PlayerClass.default.GroundSpeed*PlayerClass.default.GroundSpeed)
+		if (!class'Hat_StatusEffect_RideablePokemon'.static.AllowOnlinePlayerSpeedDustParticle(gpp))
 			continue;
 		for (j = 0; j < CurrentPlayers.Length; j++)
 		{

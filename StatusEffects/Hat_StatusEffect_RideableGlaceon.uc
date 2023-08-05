@@ -65,6 +65,11 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 	return true;
 }
 
+static function bool IsTiedToFlair()
+{
+	return true;
+}
+
 defaultproperties
 {
 	ScooterMesh = SkeletalMesh'RideableGlaceon_Package.models.Glaceon'
@@ -77,5 +82,4 @@ defaultproperties
 	WireframeMaterials.Add(Material'RideableGlaceon_Package.Materials.pm0471_00_body_Wireframe')
 	WireframeMaterials.Add(MaterialInstanceTimeVarying'RideableGlaceon_Package.Materials.pm0471_00_mouth_Wireframe')
 	WireframeMaterials.Add(Material'RideableGlaceon_Package.Materials.pm0471_00_eye_Wireframe')
-	TiedToFlair = true
 }

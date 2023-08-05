@@ -130,37 +130,6 @@ static function bool ConditionalInitMaterialInstance(MeshComponent comp, int i, 
 	return (CreatedInstance != None);
 }
 
-static function MaterialInstance ConditionalInitMaterialInstanceNoMesh(MaterialInterface mat) //Creates MaterialInstance (or returns detected one) and sets mat as its Parent. Does not set this Instance as Material to MeshComponent and does not ignore Invisible and OccludedMaterial.
-{
-	local MaterialInstance inst;
-	if (mat == None)
-		return None;
-	if (MaterialInstance(mat) != None)
-	{
-		if (MaterialInstance(mat).IsInMapOrTransientPackage())
-			return MaterialInstance(mat);
-		if (MaterialInstanceConstant(mat) != None)
-		{
-			inst = new(None) class'MaterialInstanceConstant';
-			inst.SetParent(mat);
-			return inst;
-		}
-		else if (MaterialInstanceTimeVarying(mat) != None)
-		{
-			inst = new(None) class'MaterialInstanceTimeVarying';
-			inst.SetParent(mat);
-			return inst;
-		}
-	}
-	else
-	{
-		inst = new(None) class'MaterialInstanceTimeVarying';
-		inst.SetParent(mat);
-		return inst;
-	}
-	return None;
-}
-
 static function MaterialInterface GetActualMaterial(MaterialInterface mat) //Returns actual (Editor-created) MaterialInterface.
 {
 	local MaterialInstance inst;
@@ -172,44 +141,50 @@ static function MaterialInterface GetActualMaterial(MaterialInterface mat) //Ret
 	return inst;
 }
 
-static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. True if the Material Instance currently on the comp is transient and we can just change its parent. False otherwise.
+static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. Returns true if  transient MaterialInstance was created.
 {
 	local MaterialInstance inst;
 	local MaterialInterface mat;
 	if (i < 0 || NewParent == None || comp == None)
 		return false;
+	mat = GetActualMaterial(NewParent);
+	if (mat == None)
+		return false;
+	switch(mat.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
+	{
+		case Material'HatInTime_Characters.Materials.Invisible':
+		case Material'HatInTime_Characters.Materials.OccludedMaterial':
+			if (comp.GetMaterial(i) != mat)
+				comp.SetMaterial(i, mat);
+			return false;
+		default:
+			break;
+	}
+	if (mat != NewParent) //Applying transient MaterialInstance. Need to copy its parameters. Unfortunately, this will require creating one new MaterialInstance.
+	{
+		if (comp.GetMaterial(i) != NewParent)
+			comp.SetMaterial(i, NewParent);
+		if (MaterialInstanceConstant(NewParent) != None)
+			comp.CreateAndSetMaterialInstanceConstant(i);
+		else
+			comp.CreateAndSetMaterialInstanceTimeVarying(i);
+	}
 	inst = MaterialInstance(comp.GetMaterial(i));
 	if (inst != None && inst.IsInMapOrTransientPackage())
 	{
-		switch(NewParent.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
-		{
-			case Material'HatInTime_Characters.Materials.Invisible':
-			case Material'HatInTime_Characters.Materials.OccludedMaterial':
-				comp.SetMaterial(i, GetActualMaterial(NewParent));
-				return false;
-		}
-		if (inst.Parent != NewParent);
-			inst.SetParent(NewParent);
-		mat = GetActualMaterial(NewParent);
-		if (mat != NewParent) //What if we set transient MaterialInstance as Parent? Might change Parent to original MaterialInterface after instance's changes are applied.
+		if (inst.Parent != mat)
 			inst.SetParent(mat);
-		return true;
 	}
 	else
 	{
-		switch(NewParent.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
-		{
-			case Material'HatInTime_Characters.Materials.Invisible':
-			case Material'HatInTime_Characters.Materials.OccludedMaterial':
-				comp.SetMaterial(i, GetActualMaterial(NewParent));
-				break;
-			default:
-				comp.SetMaterial(i, NewParent);
-				ConditionalInitMaterialInstance(comp, i);
-				break;
-		}
-		return false;
+		if (comp.GetMaterial(i) != mat)
+			comp.SetMaterial(i, mat);
+		if (MaterialInstanceConstant(mat) != None)
+			comp.CreateAndSetMaterialInstanceConstant(i);
+		else
+			comp.CreateAndSetMaterialInstanceTimeVarying(i);
 	}
+	return true;
 }
 
 static function class<Hat_Collectible_Skin> GetCurrentSkin(Actor a) //Returns current SkinClass used by Player.
@@ -245,7 +220,10 @@ static function Hat_Loadout GetLoadout(Actor a) //Returns loadout of Player. Inp
 	npc = Hat_NPC_Player(a);
 	if (npc != None)
 		return npc.GetLoadout();
-	hpc = Hat_PlayerController(class'Shara_SteamID_Tools_RPS'.static.GetPlayerController(a));
+	if (Pawn(a) != None)
+		hpc = Hat_PlayerController(class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(Pawn(a)));
+	else
+		hpc = Hat_PlayerController(PlayerController(a));
 	if (hpc == None)
 		return None;
 	return hpc.GetLoadout();

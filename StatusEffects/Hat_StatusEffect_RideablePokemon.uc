@@ -27,7 +27,6 @@ struct ActorProperties
 var const AnimSet ScooterAnimSet;
 var const Name ScooterAnimNodesName, ScooterIntroAnimation, ScooterLoopAnimation;
 var const Array<MaterialInterface> WireframeMaterials;
-var const bool PokemonScaresPlayers, DebugOnly, TiedToFlair;
 var protectedwrite transient float ScooterScale, TimeUntilLoopAnimation;
 var protectedwrite transient Vector ScooterScale3D;
 var protectedwrite transient int Health;
@@ -205,7 +204,7 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 			p.ClientMessage("You can't ride"@s@"because you're not a Player.");
 		return false;
 	}
-	if (default.DebugOnly && !class'RideablePokemon_Script'.static.IsDev())
+	if (IsDebugOnly() && !class'RideablePokemon_Script'.static.IsDev())
 	{
 		if (DoSendMessage)
 			ply.ClientMessage("You can't ride"@s@"because it's not fully implemented yet. Wait for the next version of the mod.");
@@ -316,7 +315,7 @@ final static function bool DoesPlayerFlairSupportThisPokemon(Actor a)
 		return false;
 	if (PlayerHat.Class != FlairBaseHat)
 		return false;
-	if (default.TiedToFlair)
+	if (IsTiedToFlair())
 		return (PlayerHat.MyItemQualityInfo.default.StatusEffectOverride == default.Class);
 	return true;
 }
@@ -701,11 +700,29 @@ simulated function bool Update(float delta)
 	if (ply.Physics == PHYS_Walking)
 		StartAirYaw = false;
 	if (SpeedDustParticleComponent != None)
-		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && VSizeSq2D(ply.Velocity) > 0.25*ply.GroundSpeed*ply.GroundSpeed && Abs(ply.VehicleProperties.Throttle) > 0.1);
+		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && AllowLocalPlayerSpeedDustParticle(ply));
 	UpdateSounds(delta);
 	UpdateVisuals(class<Hat_Collectible_Skin_Wireframe>(class'Shara_SkinColors_Tools_Short_RPS'.static.GetCurrentSkin(ply)) != None, Hat_StatusEffect_Muddy(ply.GetStatusEffect(class'Hat_StatusEffect_Muddy', true)) != None);
 	UpdateHealth(ply.Health);
 	return true;
+}
+
+final static function bool AllowLocalPlayerSpeedDustParticle(Hat_Player ply) //Also used to determine whether to play Furret music or not.
+{
+	if (ply == None)
+		return false;
+	return (VSizeSq2D(ply.Velocity) > 0.25*ply.GroundSpeed*ply.GroundSpeed && Abs(ply.VehicleProperties.Throttle) > 0.1);
+}
+
+final static function bool AllowOnlinePlayerSpeedDustParticle(Hat_GhostPartyPlayer gpp) //Also used to determine whether to play Furret music or not.
+{
+	local class<Hat_Player> PlayerClass;
+	if (gpp == None)
+		return false;
+	PlayerClass = gpp.PlayerVisualClass;
+	if (PlayerClass == None)
+		PlayerClass = class'Hat_Player_HatKid';
+	return (VSizeSq2D(gpp.Velocity) > 0.25*PlayerClass.default.GroundSpeed*PlayerClass.default.GroundSpeed);
 }
 
 function bool OnDuck()
@@ -744,7 +761,7 @@ final simulated function bool PerformScooterHonk() //Returns false if Owner is N
 		if (HonkParticleComponent != None)
 			HonkParticleComponent.SetActive(true);
 		Owner.PlaySound(HonkSound);
-		ScareNearbyPawns(Owner, PokemonScaresPlayers && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
+		ScareNearbyPawns(Owner, ShouldScarePlayers() && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
 	}
 	SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
 	ply = Hat_Player(Owner);
@@ -852,7 +869,7 @@ final static function SetMuddyEffectMesh(MeshComponent comp, bool b)
 {
 	local int i;
 	local MaterialInstance inst;
-	local MaterialInstanceTimeVarying VaryingInst;
+	local MaterialInstanceTimeVarying MITV;
 	local InterpCurveFloat Curve;
 	local LinearColor ColorLight, ColorDark;
 	if (comp == None)
@@ -868,11 +885,11 @@ final static function SetMuddyEffectMesh(MeshComponent comp, bool b)
 		inst.SetVectorParameterValue('GoopColorDark', ColorDark);
 		inst.SetScalarCurveParameterValue('MudVertexShader', Curve);
 		inst.SetScalarCurveParameterValue('Goop', Curve);
-		VaryingInst = MaterialInstanceTimeVarying(inst);
-		if (VaryingInst != None)
+		MITV = MaterialInstanceTimeVarying(inst);
+		if (MITV != None)
 		{
-			VaryingInst.SetScalarStartTime('MudVertexShader', 0.0);
-			VaryingInst.SetScalarStartTime('Goop', 0.0);
+			MITV.SetScalarStartTime('MudVertexShader', 0.0);
+			MITV.SetScalarStartTime('Goop', 0.0);
 		}
 	}
 }
@@ -893,13 +910,11 @@ static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 	local int i;
 	if (default.WireframeMaterials.Length < 1)
 		return false;
-	if (comp != None && comp.SkeletalMesh == default.ScooterMesh)
-	{
-		for (i = 0; i < Min(comp.GetNumElements(), default.WireframeMaterials.Length); i++)
-			class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, default.WireframeMaterials[i]);
-		return true;
-	}
-	return false;
+	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+		return false;
+	for (i = 0; i < Min(comp.GetNumElements(), default.WireframeMaterials.Length); i++)
+		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, default.WireframeMaterials[i]);
+	return true;
 }
 
 static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
@@ -924,15 +939,10 @@ final static function bool SetSkeletalMeshDefaultMaterialInstanceParents(Skeleta
 final static function CopyParentMeshMaterials(MeshComponent ParentMesh, MeshComponent TargetMesh)
 {
 	local int i;
-	local MaterialInterface mat;
 	if (ParentMesh == None || TargetMesh == None)
 		return;
 	for (i = 0; i < Min(ParentMesh.GetNumElements(), TargetMesh.GetNumElements()); i++)
-	{
-		mat = class'Shara_SkinColors_Tools_Short_RPS'.static.GetActualMaterial(ParentMesh.GetMaterial(i));
-		if (mat != None)
-			class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(TargetMesh, i, mat);
-	}
+		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(TargetMesh, i, ParentMesh.GetMaterial(i));
 }
 
 simulated function OnRemoved(Actor a)
@@ -1169,7 +1179,7 @@ final static function GhostPartyScareNearbyPlayers(Hat_GhostPartyPlayer gpp) //O
 {
 	local WorldInfo wi;
 	local Hat_Player ply;
-	if (!default.PokemonScaresPlayers)
+	if (!ShouldScarePlayers())
 		return;
 	if (gpp == None)
 		return;
@@ -1224,6 +1234,21 @@ final static function ScareMafia(Hat_Enemy_Mobster_Base m)
 {
 	if (m != None)
 		m.GiveStatusEffect(class'Hat_StatusEffect_VehicleHonkScared');
+}
+
+static function bool IsTiedToFlair()
+{
+	return false;
+}
+
+static function bool IsDebugOnly()
+{
+	return false;
+}
+
+static function bool ShouldScarePlayers()
+{
+	return false;
 }
 
 defaultproperties

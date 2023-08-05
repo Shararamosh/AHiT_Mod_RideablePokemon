@@ -126,6 +126,17 @@ static function bool SetGiratinaAttachmentParentProperties(SkeletalMeshComponent
 	return true;
 }
 //ATTACHMENT FUNCTIONS END!!!
+
+static function bool IsTiedToFlair()
+{
+	return true;
+}
+
+static function bool ShouldScarePlayers()
+{
+	return true;
+}
+
 defaultproperties
 {
 	ScooterMesh = SkeletalMesh'RideableGiratina_Package.models.Giratina'
@@ -139,8 +150,6 @@ defaultproperties
 	WireframeMaterials.Add(Material'RideableGiratina_Package.Materials.pm0487_12_bodya_Wireframe')
 	WireframeMaterials.Add(MaterialInstanceTimeVarying'RideableGiratina_Package.Materials.pm0487_12_bodyb_Wireframe')
 	WireframeMaterials.Add(Material'RideableGiratina_Package.Materials.pm0487_12_eye_Wireframe')
-	PokemonScaresPlayers = true
-	TiedToFlair = true
 	Begin Object Class=SkeletalMeshComponent Name=AttachmentArchetype0
 		SkeletalMesh = SkeletalMesh'RideableGiratina_Package.models.Giratina_Attachment'
 		PhysicsAsset = PhysicsAsset'RideableGiratina_Package.Physics.Giratina_Attachment_Physics'
