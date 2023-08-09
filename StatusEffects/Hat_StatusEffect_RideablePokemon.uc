@@ -456,12 +456,17 @@ simulated function OnAdded(Actor a)
 {
 	local Hat_Player ply;
 	RestoreActorProperties(a);
+	ply = Hat_Player(a);
+	if (ply != None && ply.Mesh != None)
+	{
+		ScooterScale = ply.Mesh.Scale;
+		ScooterScale3D = ply.Mesh.Scale3D;
+	}
 	if (!CanRidePokemon(a, false, true, true))
 	{
 		RemoveStatusEffect(a, class'Hat_StatusEffect_BadgeScooter', true);
 		return;
 	}
-	ply = Hat_Player(a);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Squished', true);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Shrink', true);
 	ply.BounceAnimation(0.0);
@@ -601,7 +606,7 @@ simulated function bool Update(float delta)
 	local bool ShouldPlayLoopAnimation;
 	i = IterateActorsProperties();
 	ply = Hat_Player(Owner);
-	if (ply == None || ply.Mesh == None)
+	if (ply == None || ply.Mesh == None || ScooterMeshComp == None)
 	{
 		RemoveStatusEffect(Owner, class'Hat_StatusEffect_BadgeScooter', true);
 		return false;
@@ -612,30 +617,37 @@ simulated function bool Update(float delta)
 	{
 		if (!ply.bCanBeBaseForPawns)
 			ply.bCanBeBaseForPawns = true;
-		if (ScooterMeshComp != None && (!ScooterMeshComp.CollideActors || !ScooterMeshComp.BlockActors))
+		if (!ScooterMeshComp.CollideActors || !ScooterMeshComp.BlockActors)
 			ScooterMeshComp.SetActorCollision(true, true, ScooterMeshComp.AlwaysCheckCollision);
 	}
 	else
 	{
 		if (ply.bCanBeBaseForPawns && !ActorsProperties[i].bCanBeBaseForPawns)
 			ply.bCanBeBaseForPawns = false;
-		if (ScooterMeshComp != None && (ScooterMeshComp.CollideActors || ScooterMeshComp.BlockActors))
+		if (ScooterMeshComp.CollideActors || ScooterMeshComp.BlockActors)
 			ScooterMeshComp.SetActorCollision(false, false, ScooterMeshComp.AlwaysCheckCollision);
 	}
 	if (ply.IdleTime <= 15.0)
 		ply.IdleTime = 25.0;
 	//New Scale stuff below.
-	if (ply.Mesh.Scale != 1.0)
-		ply.Mesh.SetScale(1.0);
-	if (ply.Mesh.Scale3D != vect(1.0, 1.0, 1.0))
-		ply.Mesh.SetScale3D(vect(1.0, 1.0, 1.0));
-	if (ScooterMeshComp != None)
+	if (ScooterMeshComp.IsComponentAttached(ply.Mesh))
 	{
-		if (ScooterMeshComp.Scale != ScooterScale)
-			ScooterMeshComp.SetScale(ScooterScale);
-		if (ScooterMeshComp.Scale3D != ScooterScale3D)
-			ScooterMeshComp.SetScale3D(ScooterScale3D);
+		if (ply.Mesh.Scale != 1.0)
+			ply.Mesh.SetScale(1.0);
+		if (ply.Mesh.Scale3D != vect(1.0, 1.0, 1.0))
+			ply.Mesh.SetScale3D(vect(1.0, 1.0, 1.0));
 	}
+	else
+	{
+		if (ply.Mesh.Scale != ScooterScale)
+			ply.Mesh.SetScale(ScooterScale);
+		if (ply.Mesh.Scale3D != ScooterScale3D)
+			ply.Mesh.SetScale3D(ScooterScale3D);
+	}
+	if (ScooterMeshComp.Scale != ScooterScale)
+		ScooterMeshComp.SetScale(ScooterScale);
+	if (ScooterMeshComp.Scale3D != ScooterScale3D)
+		ScooterMeshComp.SetScale3D(ScooterScale3D);
 	//New Scale stuff above.
 	if (TimeUntilLoopAnimation > 0.0)
 	{
@@ -973,11 +985,13 @@ simulated function OnRemoved(Actor a)
 		ply.VehicleProperties.VehicleModeActive = false;
 		ply.SetStepUpOffsetMesh(None);
 		ply.ResetMoveSpeed();
-		ply.AttachComponent(ply.Mesh);
-		if (ScooterMeshComp != None)
+		if (ply.Mesh != None)
 		{
-			ply.Mesh.SetScale(ScooterScale);
-			ply.Mesh.SetScale3D(ScooterScale3D);
+			ply.AttachComponent(ply.Mesh);
+			if (ply.Mesh.Scale != ScooterScale)
+				ply.Mesh.SetScale(ScooterScale);
+			if (ply.Mesh.Scale3D != ScooterScale3D)
+				ply.Mesh.SetScale3D(ScooterScale3D);
 		}
 		ply.VehicleProperties.VehicleMeshComponent = None;
 		if (ExplodeParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
