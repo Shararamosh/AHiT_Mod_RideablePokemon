@@ -21,21 +21,24 @@ struct ActorProperties
 {
 	var Actor PropertiesOwner;
 	var bool bCanBeBaseForPawns; //Pawn only.
-	var float AccelRate; //Pawn only.
+	var float AccelRate, MeshScale; //Pawn only.
+	var Vector MeshScale3D; //Pawn only.
+	var AnimationType PlayerAnimationType; //Hat_Player only.
+	structdefaultproperties
+	{
+		MeshScale = 1.0
+		MeshScale3D = (X = 1.0, Y = 1.0, Z = 1.0)
+	}
 };
 
 var const AnimSet ScooterAnimSet;
 var const Name ScooterAnimNodesName, ScooterIntroAnimation, ScooterLoopAnimation;
 var const Array<MaterialInterface> WireframeMaterials;
-var protectedwrite transient float ScooterScale, TimeUntilLoopAnimation;
-var protectedwrite transient Vector ScooterScale3D;
-var protectedwrite transient int Health;
-var protectedwrite transient AnimationType PlayerAnimationType; 
-var protected transient RideablePokemon_Script ModInstance;
-var protected transient Array<ActorProperties> ActorsProperties;
-var protectedwrite transient bool IsWireframe, IsMuddy;
-var protectedwrite transient class<Hat_StatusEffect_Muddy> CurrentMuddyStatus;
-var const RBCollisionChannelContainer ScooterCollisionContainer;
+var privatewrite transient float TimeUntilLoopAnimation;
+var privatewrite transient int Health;
+var private transient RideablePokemon_Script ModInstance;
+var private transient Array<ActorProperties> ActorsProperties;
+var privatewrite transient bool IsWireframe, IsMuddy;
 
 static function bool IsCollisionEnabled()
 {
@@ -111,7 +114,25 @@ final static function SetScooterMeshCollisionProperties(SkeletalMeshComponent co
 	comp.CanBeStoodOn = true;
 	comp.CanBeEdgeGrabbed = true;
 	comp.SetRBChannel(RBCC_GameplayPhysics);
-	comp.SetRBCollisionChannels(default.ScooterCollisionContainer);
+	comp.SetRBCollidesWithChannel(RBCC_Default, true);
+	comp.SetRBCollidesWithChannel(RBCC_Nothing, false);
+	comp.SetRBCollidesWithChannel(RBCC_Pawn, true);
+	comp.SetRBCollidesWithChannel(RBCC_Vehicle, true);
+	comp.SetRBCollidesWithChannel(RBCC_Water, false);
+	comp.SetRBCollidesWithChannel(RBCC_GameplayPhysics, true);
+	comp.SetRBCollidesWithChannel(RBCC_EffectPhysics, true);
+	comp.SetRBCollidesWithChannel(RBCC_Untitled1, false);
+	comp.SetRBCollidesWithChannel(RBCC_Untitled2, false);
+	comp.SetRBCollidesWithChannel(RBCC_Untitled3, true);
+	comp.SetRBCollidesWithChannel(RBCC_Untitled4, false);
+	comp.SetRBCollidesWithChannel(RBCC_Cloth, false);
+	comp.SetRBCollidesWithChannel(RBCC_FluidDrain, false);
+	comp.SetRBCollidesWithChannel(RBCC_SoftBody, false);
+	comp.SetRBCollidesWithChannel(RBCC_FracturedMeshPart, false);
+	comp.SetRBCollidesWithChannel(RBCC_BlockingVolume, true);
+	comp.SetRBCollidesWithChannel(RBCC_DeadPawn, false);
+	comp.SetRBCollidesWithChannel(RBCC_Clothing, false);
+	comp.SetRBCollidesWithChannel(RBCC_ClothingCollision, false);
 	comp.SetTickGroup(TG_PostAsyncWork);
 	comp.InitRBPhys();
 	comp.WakeRigidBody();
@@ -360,6 +381,11 @@ final simulated function int SaveActorProperties(Actor a)
 	{
 		ap.bCanBeBaseForPawns = p.bCanBeBaseForPawns;
 		ap.AccelRate = p.AccelRate;
+		if (p.Mesh != None)
+		{
+			ap.MeshScale = p.Mesh.Scale;
+			ap.MeshScale3D = p.Mesh.Scale3D;
+		}
 	}
 	i = ActorsProperties.Find('PropertiesOwner', a);
 	if (i > -1)
@@ -410,6 +436,7 @@ final simulated function RestoreActorsProperties()
 final static function bool RestoreSavedActorProperties(ActorProperties ap) //Returns true if any property value was changed.
 {
 	local Pawn p;
+	local Hat_Player ply;
 	local bool b;
 	p = Pawn(ap.PropertiesOwner);
 	if (p == None)
@@ -423,6 +450,45 @@ final static function bool RestoreSavedActorProperties(ActorProperties ap) //Ret
 	{
 		p.AccelRate = ap.AccelRate;
 		b = true;
+	}
+	if (p.Mesh != None)
+	{
+		if (p.Mesh.Scale != ap.MeshScale)
+		{
+			p.Mesh.SetScale(ap.MeshScale);
+			b = true;
+		}
+		if (p.Mesh.Scale3D != ap.MeshScale3D)
+		{
+			p.Mesh.SetScale3D(ap.MeshScale3D);
+			b = true;
+		}
+	}
+	ply = Hat_Player(p);
+	if (ply != None)
+	{
+		switch(ap.PlayerAnimationType)
+		{
+			case Type_Sandmobile:
+				ply.OnExitVehicleClassAnim();
+				ply.SetSandmobileAnim(ESandmobileAnim_None, 0);
+				b = true;
+				break;
+			case Type_AnimNodes:
+				SetAnimNodesByNameActive(ply.Mesh, default.ScooterAnimNodesName, false);
+				b = true;
+				break;
+			case Type_TauntNodes:
+				ply.SetTauntAnim("", string(default.ScooterAnimNodesName));
+				b = true;
+				break;
+			case Type_CustomAnimation:
+				ply.PlayCustomAnimation('');
+				b = true;
+				break;
+			default:
+				break;
+		}
 	}
 	return b;
 }
@@ -455,21 +521,18 @@ final simulated function int IterateActorsProperties() //Returns index of Array 
 simulated function OnAdded(Actor a)
 {
 	local Hat_Player ply;
+	local int i;
 	RestoreActorProperties(a);
-	ply = Hat_Player(a);
-	if (ply != None && ply.Mesh != None)
-	{
-		ScooterScale = ply.Mesh.Scale;
-		ScooterScale3D = ply.Mesh.Scale3D;
-	}
 	if (!CanRidePokemon(a, false, true, true))
 	{
 		RemoveStatusEffect(a, class'Hat_StatusEffect_BadgeScooter', true);
 		return;
 	}
+	ply = Hat_Player(a);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Squished', true);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Shrink', true);
 	ply.BounceAnimation(0.0);
+	i = SaveActorProperties(ply);
 	Super(Hat_StatusEffect).OnAdded(ply);
 	ScooterMeshComp = CreateScooterMesh(ply, ply.Mesh);
 	if (ScooterMeshComp == None)
@@ -478,14 +541,12 @@ simulated function OnAdded(Actor a)
 		RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 		return;
 	}
-	ScooterScale = ScooterMeshComp.Scale;
-	ScooterScale3D = ScooterMeshComp.Scale3D;
 	if (ScooterAnimNodesName != '')
 	{
 		if (SetAnimNodesByNameActive(ply.Mesh, ScooterAnimNodesName, true))
-			PlayerAnimationType = Type_AnimNodes;
+			ActorsProperties[i].PlayerAnimationType = Type_AnimNodes;
 		else if (ply.SetTauntAnim(string(ScooterAnimNodesName)))
-			PlayerAnimationType = Type_TauntNodes;
+			ActorsProperties[i].PlayerAnimationType = Type_TauntNodes;
 		else
 		{
 			if (ScooterLoopAnimation != '')
@@ -512,7 +573,7 @@ simulated function OnAdded(Actor a)
 					TimeUntilLoopAnimation = 0.0;
 					ply.PlayCustomAnimation(ScooterLoopAnimation, true);
 				}
-				PlayerAnimationType = Type_CustomAnimation;
+				ActorsProperties[i].PlayerAnimationType = Type_CustomAnimation;
 			}
 			else
 			{
@@ -546,15 +607,14 @@ simulated function OnAdded(Actor a)
 			TimeUntilLoopAnimation = 0.0;
 			ply.PlayCustomAnimation(ScooterLoopAnimation, true);
 		}
-		PlayerAnimationType = Type_CustomAnimation;
+		ActorsProperties[i].PlayerAnimationType = Type_CustomAnimation;
 	}
 	else
 	{
 		ply.OnEnterVehicleClassAnim(class'Hat_VehicleScooter_Base');
 		ply.SetSandmobileAnim(ESandmobileAnim_JumpIn);
-		PlayerAnimationType = Type_Sandmobile;
+		ActorsProperties[i].PlayerAnimationType = Type_Sandmobile;
 	}
-	SaveActorProperties(ply);
 	if (!ply.bCanBeBaseForPawns && IsCollisionEnabled())
 		ply.bCanBeBaseForPawns = true;
 	if (ply.IdleTime <= 15.0)
@@ -639,15 +699,15 @@ simulated function bool Update(float delta)
 	}
 	else
 	{
-		if (ply.Mesh.Scale != ScooterScale)
-			ply.Mesh.SetScale(ScooterScale);
-		if (ply.Mesh.Scale3D != ScooterScale3D)
-			ply.Mesh.SetScale3D(ScooterScale3D);
+		if (ply.Mesh.Scale != ActorsProperties[i].MeshScale)
+			ply.Mesh.SetScale(ActorsProperties[i].MeshScale);
+		if (ply.Mesh.Scale3D != ActorsProperties[i].MeshScale3D)
+			ply.Mesh.SetScale3D(ActorsProperties[i].MeshScale3D);
 	}
-	if (ScooterMeshComp.Scale != ScooterScale)
-		ScooterMeshComp.SetScale(ScooterScale);
-	if (ScooterMeshComp.Scale3D != ScooterScale3D)
-		ScooterMeshComp.SetScale3D(ScooterScale3D);
+	if (ScooterMeshComp.Scale != ActorsProperties[i].MeshScale)
+		ScooterMeshComp.SetScale(ActorsProperties[i].MeshScale);
+	if (ScooterMeshComp.Scale3D != ActorsProperties[i].MeshScale3D)
+		ScooterMeshComp.SetScale3D(ActorsProperties[i].MeshScale3D);
 	//New Scale stuff above.
 	if (TimeUntilLoopAnimation > 0.0)
 	{
@@ -674,7 +734,7 @@ simulated function bool Update(float delta)
 	}
 	else
 		HonkCooldown = 0.0;
-	switch(PlayerAnimationType)
+	switch(ActorsProperties[i].PlayerAnimationType)
 	{
 		case Type_Sandmobile: //Standard Scooter Animation behavior - playing loop animation using Player's script when requested.
 			if (CurrentDuration >= JumpInTime && PrevDuration < JumpInTime)
@@ -960,47 +1020,21 @@ final static function CopyParentMeshMaterials(MeshComponent ParentMesh, MeshComp
 simulated function OnRemoved(Actor a)
 {
 	local Hat_Player ply;
+	RestoreActorProperties(a);
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
-		switch(PlayerAnimationType)
-		{
-			case Type_Sandmobile:
-				ply.OnExitVehicleClassAnim();
-				ply.SetSandmobileAnim(ESandmobileAnim_None, 0);
-				break;
-			case Type_AnimNodes:
-				SetAnimNodesByNameActive(ply.Mesh, ScooterAnimNodesName, false);
-				break;
-			case Type_TauntNodes:
-				ply.SetTauntAnim("", string(ScooterAnimNodesName));
-				break;
-			case Type_CustomAnimation:
-				ply.PlayCustomAnimation('');
-				break;
-			default:
-				break;
-		}
-		RestoreActorProperties(ply);
 		ply.VehicleProperties.VehicleModeActive = false;
 		ply.SetStepUpOffsetMesh(None);
 		ply.ResetMoveSpeed();
-		if (ply.Mesh != None)
-		{
+		if (ply.Mesh != None && (!ply.Mesh.bAttached || ply.Mesh.Owner != ply || (ScooterMeshComp != None && ScooterMeshComp.IsComponentAttached(ply.Mesh))))
 			ply.AttachComponent(ply.Mesh);
-			if (ply.Mesh.Scale != ScooterScale)
-				ply.Mesh.SetScale(ScooterScale);
-			if (ply.Mesh.Scale3D != ScooterScale3D)
-				ply.Mesh.SetScale3D(ScooterScale3D);
-		}
 		ply.VehicleProperties.VehicleMeshComponent = None;
 		if (ExplodeParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
 			ply.WorldInfo.MyEmitterPool.SpawnEmitter(ExplodeParticle, ply.Location);
 		if (ExplodeSound != None)
 			ply.PlaySound(ExplodeSound);
 	}
-	else
-		RestoreActorProperties(a);
 	if (ScooterMeshComp != None)
 	{
 		ScooterMeshComp.DetachFromAny();
@@ -1031,9 +1065,6 @@ simulated function OnRemoved(Actor a)
 		WindSound.DetachFromAny();
 		WindSound = None;
 	}
-	PlayerAnimationType = Type_None;
-	ScooterScale = default.ScooterScale;
-	ScooterScale3D = default.ScooterScale3D;
 	if (ply != None)
 		class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"RideStop", ply, , ModInstance);
 	Super(Hat_StatusEffect).OnRemoved(a);
@@ -1268,8 +1299,6 @@ static function bool ShouldScarePlayers()
 defaultproperties
 {
 	ScooterPhysicsAssetInstance = true
-	ScooterScale = 1.0
-	ScooterScale3D = (X = 1.0, Y = 1.0, Z = 1.0)
 	Health = HealthMax
 	WheelStopLeftSound = None
 	WheelStopRightSound = None
@@ -1277,5 +1306,4 @@ defaultproperties
 	WindSound = None
 	EngineSound = None
 	EngineDrivingSound = None
-	ScooterCollisionContainer = (Default = true, Pawn = true, Vehicle = true, GameplayPhysics = true, EffectPhysics = true, Untitled3 = true, BlockingVolume = true)
 }

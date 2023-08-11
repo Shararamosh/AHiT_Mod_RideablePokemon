@@ -74,7 +74,7 @@ static function class<Hat_StatusEffect_RideablePokemon> GetPokemonStatusEffectBy
 	local int i;
 	local string s;
 	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
-	PokemonEffects = GetStandardPokemonStatusEffects(); //Pokemon avaialble to be used for any mod Sprint Hat Flair.
+	PokemonEffects = GetStandardPokemonStatusEffects(); //Pokemon available to be used for any mod Sprint Hat Flair.
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
 		s = locs(PokemonEffects[i].static.GetLocalName());
@@ -84,7 +84,7 @@ static function class<Hat_StatusEffect_RideablePokemon> GetPokemonStatusEffectBy
 			return PokemonEffects[i];
 		}
 	}
-	PokemonEffects = GetSpecialPokemonStatusEffects(); //Pokemon avaialble only to specific mod Sprint Hat Flairs.
+	PokemonEffects = GetSpecialPokemonStatusEffects(); //Pokemon available only to specific mod Sprint Hat Flairs.
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
 		s = locs(PokemonEffects[i].static.GetLocalName());

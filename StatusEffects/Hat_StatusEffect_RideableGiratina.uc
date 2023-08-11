@@ -155,8 +155,6 @@ defaultproperties
 		PhysicsAsset = PhysicsAsset'RideableGiratina_Package.Physics.Giratina_Attachment_Physics'
 		bHasPhysicsAssetInstance = true
 		CanBlockCamera = false
-		CollideActors = true
-		BlockActors = true
 		BlockZeroExtent = true
 		BlockNonZeroExtent = true
 		BlockRigidBody = true
