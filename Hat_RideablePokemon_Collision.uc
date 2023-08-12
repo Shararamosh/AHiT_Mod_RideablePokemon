@@ -192,6 +192,7 @@ simulated function ModifyOwnerProperties()
 		return;
 	}
 	b = IsCollisionEnabled();
+	ApplyOwnerCollisionProperties(b);
 	if (gpp.ScooterMesh.CollideActors != b || gpp.ScooterMesh.BlockActors != b)
 		gpp.ScooterMesh.SetActorCollision(b, b, gpp.ScooterMesh.AlwaysCheckCollision);
 	if (gpp.SprintParticle != None)
@@ -246,7 +247,7 @@ static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
 {
 	local Hat_RideablePokemon_Collision CollisionActor;
-	if (Hat_Player(a) == None && Hat_GhostPartyPlayer(a) == None)
+	if (Hat_GhostPartyPlayer(a) == None)
 		return None;
 	CollisionActor = GetCollisionActor(a);
 	if (CollisionActor == None)
@@ -267,7 +268,7 @@ static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 	local Hat_RideablePokemon_Collision ca, CollisionActor;
 	local Array<Hat_RideablePokemon_Collision> RemoveList;
 	local int i;
-	if (Hat_Player(a) == None && Hat_GhostPartyPlayer(a) == None)
+	if (Hat_GhostPartyPlayer(a) == None)
 		return None;
 	foreach a.ChildActors(class'Hat_RideablePokemon_Collision', ca)
 	{
