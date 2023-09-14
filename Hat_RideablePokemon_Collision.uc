@@ -11,27 +11,27 @@ struct ActorCollisionProperties
 var private transient Array<ActorCollisionProperties> ActorsCollisionProperties;
 //REFERENCES TO OTHER CLASSES FUNCTIONS BEGIN!!!
 
-static function bool IsCollisionEnabled()
+final static function bool IsCollisionEnabled()
 {
 	return class'RideablePokemon_Script'.static.IsCollisionEnabled();
 }
 
-static function string GetPlayerString(Object o, optional bool FirstCapital)
+final static function string GetPlayerString(Object o, optional bool FirstCapital)
 {
 	return class'RideablePokemon_Script'.static.GetPlayerString(o, FirstCapital);
 }
 
-static function SendWarningMessage(string Message, optional Actor Sender)
+final static function SendWarningMessage(string Message, optional Actor Sender)
 {
 	class'RideablePokemon_Script'.static.SendWarningMessage(Message, Sender);
 }
 
-static function SendMessageArray(Array<string> StringArray, optional Actor Sender)
+final static function SendMessageArray(Array<string> StringArray, optional Actor Sender)
 {
 	class'RideablePokemon_Script'.static.SendMessageArray(StringArray, Sender);
 }
 //REFERENCES TO OTHER CLASSES FUNCTIONS END!!!
-simulated function bool ConditionalDestroy(string FunctionName)
+final private simulated function bool ConditionalDestroy(string FunctionName)
 {
 	if (Hat_GhostPartyPlayer(Owner) == None)
 	{
@@ -44,7 +44,7 @@ simulated function bool ConditionalDestroy(string FunctionName)
 	return false;
 }
 
-simulated function ApplyOwnerCollisionProperties(bool EnableCollision) //Executed in SetOwnerAsBase. Maintaining blocking collision on Owner and restoring collision in case ownership changed.
+final private simulated function ApplyOwnerCollisionProperties(bool EnableCollision) //Executed in SetOwnerAsBase. Maintaining blocking collision on Owner and restoring collision in case ownership changed.
 {
 	local int i;
 	local ActorCollisionProperties acp;
@@ -69,7 +69,7 @@ simulated function ApplyOwnerCollisionProperties(bool EnableCollision) //Execute
 		Owner.bBlockPawns = true;
 }
 
-simulated function int IterateActorsCollisionProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
+final private simulated function int IterateActorsCollisionProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
 {
 	local int i, j;
 	j = -1;
@@ -94,7 +94,7 @@ simulated function int IterateActorsCollisionProperties() //Returns index of Arr
 	return j;
 }
 
-simulated function RestoreActorsCollisionProperties()
+final private simulated function RestoreActorsCollisionProperties()
 {
 	local int i;
 	local Array<Actor> RestoredActors;
@@ -109,7 +109,7 @@ simulated function RestoreActorsCollisionProperties()
 	ActorsCollisionProperties.Length = 0;
 }
 
-static function bool RestoreSavedActorCollisionProperties(ActorCollisionProperties acp) //Returns true if any property value was changed.
+final static function bool RestoreSavedActorCollisionProperties(ActorCollisionProperties acp) //Returns true if any property value was changed.
 {
 	local bool b;
 	if (acp.PropertiesOwner == None)
@@ -181,7 +181,7 @@ simulated event Tick(float DeltaTime)
 	ModifyOwnerProperties();
 }
 
-simulated function ModifyOwnerProperties()
+final private simulated function ModifyOwnerProperties()
 {
 	local Hat_GhostPartyPlayer gpp;
 	local bool b;
@@ -215,7 +215,7 @@ simulated function ModifyOwnerProperties()
 	}
 }
 
-static function bool IsPokemonMesh(SkeletalMeshComponent comp)
+final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 {
 	if (comp == None)
 		return false;
@@ -244,7 +244,7 @@ static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 	}
 }
 
-static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
+final static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
 {
 	local Hat_RideablePokemon_Collision CollisionActor;
 	if (Hat_GhostPartyPlayer(a) == None)
@@ -263,7 +263,7 @@ static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
 	return CollisionActor;
 }
 
-static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
+final static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 {
 	local Hat_RideablePokemon_Collision ca, CollisionActor;
 	local Array<Hat_RideablePokemon_Collision> RemoveList;
@@ -291,7 +291,7 @@ static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 	return CollisionActor;
 }
 
-static function bool DestroyCollisionActor(Actor a)
+final static function bool DestroyCollisionActor(Actor a)
 {
 	local bool b;
 	local Array<Hat_RideablePokemon_Collision> RemoveList;

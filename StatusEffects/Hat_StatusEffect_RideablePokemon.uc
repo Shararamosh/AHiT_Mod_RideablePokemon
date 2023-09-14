@@ -40,7 +40,7 @@ var private transient RideablePokemon_Script ModInstance;
 var private transient Array<ActorProperties> ActorsProperties;
 var privatewrite transient bool IsWireframe, IsMuddy;
 
-static function bool IsCollisionEnabled()
+final static function bool IsCollisionEnabled()
 {
 	return class'RideablePokemon_Script'.static.IsCollisionEnabled();
 }
@@ -209,8 +209,9 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 	local Hat_StatusEffect_RideablePokemon PokemonStatus;
 	local string s;
 	local int i, j;
-	local AnimNodeBlendBase anbb;
 	local bool b;
+	local AnimNodeBlendBase anbb;
+	local Hat_StatusEffect_BadgeScooter ScooterStatus;
 	if (UseLocalName)
 		s = GetLocalName();
 	else
@@ -259,6 +260,8 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 						break;
 					}
 				}
+				if (b)
+					break;
 			}
 			if (!b)
 			{
@@ -268,11 +271,10 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 					anbb = AnimNodeBlendBase(AnimNodes[i]);
 					if (anbb == None || anbb.Children.Length < 2)
 						continue;
-					if (AnimNodeBlend(anbb) != None || AnimNodeBlendList(anbb) != None)
-					{
-						b = true;
-						break;
-					}
+					if (AnimNodeBlend(anbb) == None && AnimNodeBlendList(anbb) == None)
+						continue;
+					b = true;
+					break;
 				}
 			}
 		}
@@ -305,21 +307,17 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 			}
 		}
 	}
-	for (i = 0; i < ply.StatusEffects.Length; i++)
-	{
-		if (ply.StatusEffects[i] == None || ply.StatusEffects[i].Removed || ply.StatusEffects[i].IsExpired() || Hat_StatusEffect_BadgeScooter(ply.StatusEffects[i]) == None || ply.StatusEffects[i].Class == default.Class)
-			continue;
-		PokemonStatus = Hat_StatusEffect_RideablePokemon(ply.StatusEffects[i]);
-		if (PokemonStatus != None)
-		{
-			if (DoSendMessage)
-				ply.ClientMessage("You can't ride"@s@"because you are already riding"@PokemonStatus.GetLocalName()$".");
-		}
-		else if (DoSendMessage)
-			ply.ClientMessage("You can't ride"@s@"because you are already riding Scooter.");
+	ScooterStatus = Hat_StatusEffect_BadgeScooter(ply.GetStatusEffect(class'Hat_StatusEffect_BadgeScooter', true));
+	if (ScooterStatus == None || ScooterStatus.Class == default.Class)
+		return true;
+	if (!DoSendMessage)
 		return false;
-	}
-	return true;
+	PokemonStatus = Hat_StatusEffect_RideablePokemon(ScooterStatus);
+	if (PokemonStatus != None)
+		ply.ClientMessage("You can't ride"@s@"because you are already riding"@PokemonStatus.GetLocalName()$".");
+	else
+		ply.ClientMessage("You can't ride"@s@"because you are already riding Scooter.");
+	return false;
 }
 
 final static function bool DoesPlayerFlairSupportThisPokemon(Actor a)
@@ -368,7 +366,7 @@ final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 	return None;
 }
 
-final simulated function int SaveActorProperties(Actor a)
+final private simulated function int SaveActorProperties(Actor a)
 {
 	local int i;
 	local ActorProperties ap;
@@ -398,7 +396,7 @@ final simulated function int SaveActorProperties(Actor a)
 	return i;
 }
 
-final simulated function RestoreActorProperties(Actor a)
+final private simulated function RestoreActorProperties(Actor a)
 {
 	local int i;
 	local bool b;
@@ -418,7 +416,7 @@ final simulated function RestoreActorProperties(Actor a)
 	}
 }
 
-final simulated function RestoreActorsProperties()
+final private simulated function RestoreActorsProperties()
 {
 	local int i;
 	local Array<Actor> RestoredActors;
@@ -493,7 +491,7 @@ final static function bool RestoreSavedActorProperties(ActorProperties ap) //Ret
 	return b;
 }
 
-final simulated function int IterateActorsProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
+final private simulated function int IterateActorsProperties() //Returns index of Array position with Owner in PropertiesOwner variable.
 {
 	local int i, j;
 	j = -1;
@@ -812,7 +810,7 @@ function OnDoHonk()
 	//Lol, nope.
 }
 
-final simulated function bool PerformScooterHonk() //Returns false if Owner is None or its Physics is not PHYS_Walking.
+final private simulated function bool PerformScooterHonk() //Returns false if Owner is None or its Physics is not PHYS_Walking.
 {
 	local Hat_Player ply;
 	local Name AnimName;
@@ -884,7 +882,7 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 	SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
 }
 
-final simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPlayerMuddy)
+final private simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPlayerMuddy)
 {
 	if (IsPlayerWireframe != IsWireframe)
 	{
@@ -1076,7 +1074,7 @@ simulated function CleanUp()
 	Super.CleanUp();
 }
 
-final simulated function UpdateHealth(int h)
+final private simulated function UpdateHealth(int h)
 {
 	h = Clamp(h, 0, HealthMax);
 	if (h == Health)
@@ -1125,7 +1123,7 @@ final static function float SetPokemonCustomBattleActionAnimation(SkeletalMeshCo
 	return f;
 }
 
-final simulated function SetPokemonIdle()
+final private simulated function SetPokemonIdle()
 {
 	local Hat_Player ply;
 	ModifyPokemonFace(ScooterMeshComp, false);
@@ -1167,7 +1165,7 @@ final static function bool SetAnimNodeActive(AnimNodeBlendBase anbb, bool b, flo
 	local AnimNodeBlendList anbl;
 	local Hat_AnimBlendBase habb;
 	local AnimNodeBlend anb;
-	if (anbb == None || anbb.Children.Length < int(b)+1)
+	if (anbb == None || anbb.Children.Length < 2)
 		return false;
 	anbl = AnimNodeBlendList(anbb);
 	if (anbl != None)

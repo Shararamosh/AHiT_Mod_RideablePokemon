@@ -20,7 +20,7 @@ event OnLanguageChange()
 	UpdateLocalization();
 }
 
-simulated function UpdateLocalization()
+final private simulated function UpdateLocalization()
 {
 	if (SectionName != "" && KeyName != "" && PackageName != "")
 		LocalizedText = Localize(SectionName, KeyName, PackageName);
@@ -71,7 +71,7 @@ function OnOpenHUD(HUD H, optional String command)
 		LocalizedText = command;
 }
 
-simulated function SetKeywordReplacements(Array<string> Keywords, Array<string> LocalizationPaths)
+final simulated function SetKeywordReplacements(Array<string> Keywords, Array<string> LocalizationPaths)
 {
 	local int i, n;
 	local Array<string> SplitText;
@@ -104,7 +104,7 @@ simulated function SetKeywordReplacements(Array<string> Keywords, Array<string> 
 	}
 }
 
-simulated function string ApplyKeywordReplacements()
+final private simulated function string ApplyKeywordReplacements()
 {
 	local int i;
 	local string EditedText;
