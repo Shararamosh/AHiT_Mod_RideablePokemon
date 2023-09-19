@@ -226,6 +226,8 @@ final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 		case class'Hat_StatusEffect_RideableKangaskhan'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableSnorlax'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableFurret'.default.ScooterMesh:
+		case class'Hat_StatusEffect_RideableQuagsire_M'.default.ScooterMesh:
+		case class'Hat_StatusEffect_RideableQuagsire_F'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableOctillery_M'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableOctillery_F'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableFlygon'.default.ScooterMesh:

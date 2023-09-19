@@ -5,7 +5,7 @@ class Shara_SteamID_Tools_RPS extends Object
 	This class includes functions that are dealing with players' Steam IDs, indexes and Controllers.
 	RPS suffix means RideablePokemon_Script.
 	All functions are written by Shararamosh.
-	Last edited: 31.05.2023 3:50 GMT+3.
+	Last edited: 19.09.2023 20:26 GMT+3.
 */
 
 static function string GetMySteamID() //Returns your Steam ID.
@@ -78,7 +78,7 @@ static function Controller GetPawnController(Pawn p, optional out Array<Pawn> It
 		return None;
 	if (p.Controller != None)
 		return p.Controller;
-	if (IteratedPawns.Find(p) == INDEX_NONE)
+	if (IteratedPawns.Find(p) < 0)
 		IteratedPawns.AddItem(p);
 	else
 		return None;
@@ -101,7 +101,7 @@ static function PlayerController GetPawnPlayerController(Pawn p, optional out Ar
 	pc = PlayerController(p.Controller);
 	if (pc != None)
 		return pc;
-	if (IteratedPawns.Find(p) == INDEX_NONE)
+	if (IteratedPawns.Find(p) < 0)
 		IteratedPawns.AddItem(p);
 	else
 		return None;
@@ -201,7 +201,7 @@ static function Pawn GetNonVehiclePawn(Object o, optional out Array<Vehicle> Ite
 	v = Vehicle(p);
 	if (v == None)
 		return p;
-	if (IteratedVehicles.Find(v) == INDEX_NONE) //Preventing a chain of Vehicles that have Driver set as another Vehicle (or itself). This should NEVER occur.
+	if (IteratedVehicles.Find(v) < 0) //Preventing a chain of Vehicles that have Driver set as another Vehicle (or itself). This should NEVER occur.
 		IteratedVehicles.AddItem(v);
 	else
 		return None;

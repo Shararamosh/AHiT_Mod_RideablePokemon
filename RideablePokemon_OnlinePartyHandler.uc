@@ -50,6 +50,7 @@ final static function Array<class<Hat_StatusEffect_RideablePokemon>> GetStandard
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableKangaskhan');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableSnorlax');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableFurret');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableQuagsire_M');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableOctillery_M');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableFlygon');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableArmaldo');

@@ -450,7 +450,7 @@ event OnHookedActorSpawn(Object NewActor, Name Identifier)
 			break;
 		case 'Hat_Player':
 			ply = Hat_Player(NewActor);
-			if (ply != None && CurrentPlayers.Find(ply) == INDEX_NONE)
+			if (ply != None && CurrentPlayers.Find(ply) < 0)
 				CurrentPlayers.AddItem(ply);
 			break;
 		default:
@@ -513,7 +513,7 @@ simulated function bool CleanUpLocalPlayers(bool IsGamePaused)
 			continue;
 		if (class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(CurrentPlayers[i]) == None)
 			continue;
-		if (Hat_StatusEffect_RideableFurret(CurrentPlayers[i].GetStatusEffect(class'Hat_StatusEffect_RideableFurret', false)) == None)
+		if (!CurrentPlayers[i].HasStatusEffect(class'Hat_StatusEffect_RideableFurret', false))
 			continue;
 		if (class'Hat_StatusEffect_RideablePokemon'.static.AllowLocalPlayerSpeedDustParticle(CurrentPlayers[i]))
 			ShouldLocalMusicBeDisabled = false;
@@ -613,7 +613,7 @@ simulated function AddGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 {
 	if (PlayerState == None)
 		return;
-	if (RideablePokemonGppStates.Find(PlayerState) == INDEX_NONE)
+	if (RideablePokemonGppStates.Find(PlayerState) < 0)
 		RideablePokemonGppStates.AddItem(PlayerState);
 }
 
