@@ -357,6 +357,7 @@ static function RemoveModItems()
 	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap');
 	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat');
 	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap');
+	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_RibbonBoater');
 	BoolArray.Length = ModItems.Length;
 	HandleAllLoadoutItemClasses(ModItems, BoolArray);
 }
