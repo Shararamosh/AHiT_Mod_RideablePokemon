@@ -1,6 +1,19 @@
 class RideablePokemon_Script extends GameMod
 	config(Mods);
 
+enum LoadoutItem_State
+{
+	State_Remove,
+	State_Add,
+	State_Equip
+};
+
+struct LoadoutItem
+{
+	var class<Object> ItemClass;
+	var LoadoutItem_State ItemState;
+};
+
 enum NotifyType
 {
 	Type_None,
@@ -346,27 +359,33 @@ static function RemoveModActors()
 
 static function RemoveModItems()
 {
-	local Array<class<Object>> ModItems;
-	local Array<bool> BoolArray;
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_SafariHat');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_Substitute');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_TrapperHat');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_DawnHat');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_WoolKnit');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_GlaceonCap');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap');
-	ModItems.AddItem(class'Hat_CosmeticItemQualityInfo_Sprint_RibbonBoater');
-	BoolArray.Length = ModItems.Length;
-	HandleAllLoadoutItemClasses(ModItems, BoolArray);
+	local Array<LoadoutItem> ModItems;
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SafariHat', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_Substitute', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_TrapperHat', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_DawnHat', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_WoolKnit', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_GlaceonCap', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_OverallsCap', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_RibbonBoater', State_Remove));
+	HandleAllLoadoutItems(ModItems);
 }
 
-static function HandleAllLoadoutItemClasses(Array<class<Object>> ItemClasses, Array<bool> DoGive, optional Array<bool> DoEquip)
+static function LoadoutItem MakeLoadoutItem(class<Object> ObjectClass, LoadoutItem_State lis)
+{
+	local LoadoutItem li;
+	li.ItemClass = ObjectClass;
+	li.ItemState = lis;
+	return li;
+}
+
+static function HandleAllLoadoutItems(Array<LoadoutItem> LoadoutItems)
 {
 	local WorldInfo wi;
 	local Hat_PlayerController hpc;
-	if (ItemClasses.Length < 1)
+	if (LoadoutItems.Length < 1)
 		return;
 	wi = class'WorldInfo'.static.GetWorldInfo();
 	if (wi == None)
@@ -375,55 +394,51 @@ static function HandleAllLoadoutItemClasses(Array<class<Object>> ItemClasses, Ar
 	{
 		if (hpc == None)
 			continue;
-		HandleLoadoutItemClasses(hpc.GetLoadout(), ItemClasses, DoGive, DoEquip);
+		HandleLoadoutItems(hpc.GetLoadout(), LoadoutItems);
 	}
 }
 
-static function HandleLoadoutItemClasses(Hat_Loadout l, Array<class<Object>> ItemClasses, Array<bool> DoGive, optional Array<bool> DoEquip)
+static function HandleLoadoutItems(Hat_Loadout l, Array<LoadoutItem> LoadoutItems)
 {
 	local int i;
 	local class<Actor> MainItem;
 	local class<Hat_CosmeticItemQualityInfo> FlairClass;
-	if (ItemClasses.Length < 1)
+	if (LoadoutItems.Length < 1)
 		return;
 	if (l == None)
 		return;
-	DoGive.Length = ItemClasses.Length;
-	DoEquip.Length = ItemClasses.Length;
-	for (i = 0; i < ItemClasses.Length; i++)
+	for (i = 0; i < LoadoutItems.Length; i++)
 	{
-		if (ItemClasses[i] == None)
+		if (LoadoutItems[i].ItemClass == None)
 			continue;
-		FlairClass = class<Hat_CosmeticItemQualityInfo>(ItemClasses[i]);
+		FlairClass = class<Hat_CosmeticItemQualityInfo>(LoadoutItems[i].ItemClass);
 		if (FlairClass != None)
 			MainItem = FlairClass.static.GetBaseCosmeticItemWeApplyTo();
 		else
-			MainItem = class<Actor>(ItemClasses[i]);
-		if (MainItem == None)
-			continue;
-		HandleLoadoutActorItem(l, MainItem, FlairClass, DoGive[i], DoEquip[i]);
+			MainItem = class<Actor>(LoadoutItems[i].ItemClass);
+		HandleLoadoutActorItem(l, MainItem, FlairClass, LoadoutItems[i].ItemState);
 	}
 }
 
-static function bool HandleLoadoutActorItem(Hat_Loadout l, class<Actor> ActorClass, class<Hat_CosmeticItemQualityInfo> FlairClass, bool DoGive, optional bool DoEquip)
+static function bool HandleLoadoutActorItem(Hat_Loadout l, class<Actor> ActorClass, class<Hat_CosmeticItemQualityInfo> FlairClass, LoadoutItem_State lis)
 {
-	local Hat_LoadoutBackpackItem LoadoutItem;
+	local Hat_LoadoutBackpackItem lbi;
 	if (l == None)
 		return false;
 	if (ActorClass == None || ClassIsDeprecated(ActorClass)) //No item?
 		return false;
 	if (FlairClass != None && ClassIsDeprecated(FlairClass)) //Abstract or deprecated Flair? Uh, that's definitely an error.
 		return false;
-	LoadoutItem = l.MakeLoadoutItem(ActorClass, FlairClass, l.SaveGame);
-	if (LoadoutItem == None)
+	lbi = l.MakeLoadoutItem(ActorClass, FlairClass, l.SaveGame);
+	if (lbi == None)
 		return false;
-	if (!DoGive)
-		return l.RemoveBackpack(LoadoutItem);
-	if (LoadoutItem.ItemQualityInfo == None) //Item has no Flair at all, so we just give it to Player.
-		return l.AddBackpack(LoadoutItem, DoEquip);
-	if (l.BackpackHasInventory(class<Actor>(LoadoutItem.BackpackClass), false, LoadoutItem.ItemQualityInfo != None ? class<Hat_CosmeticItemQualityInfo>(LoadoutItem.ItemQualityInfo.default.CosmeticItemWeApplyTo) : None)) //Player has a base Class for an Item (e.g. Hat_Ability_Help with no Flair, Hat_Ability_StatueFall with no Flair, etc.) or CosmeticItemWeApplyTo Flair.
-		return l.AddBackpack(LoadoutItem, DoEquip);
-	return l.RemoveBackpack(LoadoutItem);
+	if (lis < State_Add)
+		return l.RemoveBackpack(lbi);
+	if (lbi.ItemQualityInfo == None) //Item has no Flair at all, so we just give it to Player.
+		return l.AddBackpack(lbi, lis > State_Add);
+	if (l.BackpackHasInventory(class<Actor>(lbi.BackpackClass), false, lbi.ItemQualityInfo != None ? class<Hat_CosmeticItemQualityInfo>(lbi.ItemQualityInfo.default.CosmeticItemWeApplyTo) : None)) //Player has a base Class for an Item (e.g. Hat_Ability_Help with no Flair, Hat_Ability_StatueFall with no Flair, etc.) or CosmeticItemWeApplyTo Flair.
+		return l.AddBackpack(lbi, lis > State_Add);
+	return l.RemoveBackpack(lbi);
 }
 
 event OnModLoaded()
@@ -625,29 +640,21 @@ simulated function RemoveGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 	RideablePokemonGppStates.RemoveItem(PlayerState);
 }
 
-static function ShowSubtitleForPlayer(PlayerController pc, optional string msg, optional byte r = 255, optional byte g = 255, optional byte b = 255, optional float closeAfter = 5.0, optional Array<string> Keywords, optional Array<string> LocalizationPaths)
+static function bool ShowSubtitleForPlayer(PlayerController pc, optional string msg, optional byte r = 255, optional byte g = 255, optional byte b = 255, optional float closeAfter = 5.0, optional Array<KeywordLocalizationInfo> Keywords)
 {
 	local Hat_HUD H;
-	local mcu8_HUDElementSubtitles_RPS SubtitlesHUD;
+	local Hat_HUDElementSubtitles_Advanced_RPS SubtitlesHUD;
 	if (pc == None)
-		return;
+		return false;
 	H = Hat_HUD(pc.myHUD);
 	if (H == None)
-		return;
-	SubtitlesHUD = mcu8_HUDElementSubtitles_RPS(H.OpenHUD(class'mcu8_HUDElementSubtitles_RPS', ""$r$"|"$g$"|"$b$"|"$msg));
-	if (SubtitlesHUD != None)
-		SubtitlesHUD.SetKeywordReplacements(Keywords, LocalizationPaths);
-	if (closeAfter <= 0.0)
-		closeAfter = 5.0;
-	H.SetTimer(closeAfter, false, NameOf(CloseSubtitlesForHUD), GetModInstance(), H);
-}
-
-static function CloseSubtitlesForHUD(Hat_HUD H)
-{
-	if (H == None)
-		return;
-	H.ClearTimer(NameOf(CloseSubtitlesForHUD));
-	H.CloseHUD(class'mcu8_HUDElementSubtitles_RPS');
+		return false;
+	SubtitlesHUD = Hat_HUDElementSubtitles_Advanced_RPS(H.OpenHUD(class'Hat_HUDElementSubtitles_Advanced_RPS', ""$r$"|"$g$"|"$b$"|"$msg));
+	if (SubtitlesHUD == None)
+		return false;
+	SubtitlesHUD.SetKeywordReplacements(Keywords);
+	SubtitlesHUD.SetTimeUntilClose(closeAfter);
+	return true;
 }
 
 defaultproperties
