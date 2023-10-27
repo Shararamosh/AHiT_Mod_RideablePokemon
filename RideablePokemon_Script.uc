@@ -67,6 +67,11 @@ static function bool IsCollisionEnabled()
 	return (GetConfigValue(default.Class, 'EnableCollision') == 0);
 }
 
+static function bool IsPokemonScaringAllowed()
+{
+	return (GetConfigValue(default.Class, 'AllowPokemonScaring') == 0);
+}
+
 static function string GetClassPathName(class<Object> c)
 {
 	if (c == None)
@@ -370,6 +375,7 @@ static function RemoveModItems()
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SummerHat', State_Remove));
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap', State_Remove));
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_RibbonBoater', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SpringHat', State_Remove));
 	HandleAllLoadoutItems(ModItems);
 }
 

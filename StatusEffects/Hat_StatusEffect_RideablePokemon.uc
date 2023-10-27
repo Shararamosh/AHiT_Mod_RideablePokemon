@@ -1,8 +1,6 @@
 class Hat_StatusEffect_RideablePokemon extends Hat_StatusEffect_BadgeScooter
 	abstract;
 
-const HealthMax = 4;
-
 enum AnimationType
 {
 	Type_None, //No Animation has been assigned yet.
@@ -43,6 +41,11 @@ var privatewrite transient bool IsWireframe, IsMuddy;
 final static function bool IsCollisionEnabled()
 {
 	return class'RideablePokemon_Script'.static.IsCollisionEnabled();
+}
+
+final static function bool IsPokemonScaringAllowed()
+{
+	return class'RideablePokemon_Script'.static.IsPokemonScaringAllowed();
 }
 
 static function BattleActionAnims GetBattleActionAnims()
@@ -469,7 +472,7 @@ final static function bool RestoreSavedActorProperties(ActorProperties ap) //Ret
 		{
 			case Type_Sandmobile:
 				ply.OnExitVehicleClassAnim();
-				ply.SetSandmobileAnim(ESandmobileAnim_None, 0);
+				ply.SetSandmobileAnim(ESandmobileAnim_None, 0.0);
 				b = true;
 				break;
 			case Type_AnimNodes:
@@ -709,7 +712,7 @@ simulated function bool Update(float delta)
 	//New Scale stuff above.
 	if (TimeUntilLoopAnimation > 0.0)
 	{
-		TimeUntilLoopAnimation = FMax(0.0, TimeUntilLoopAnimation-Abs(delta));
+		TimeUntilLoopAnimation = FMax(0.0, TimeUntilLoopAnimation-FMax(0.0, delta));
 		if (TimeUntilLoopAnimation == 0.0)
 			ShouldPlayLoopAnimation = true;
 	}
@@ -718,7 +721,7 @@ simulated function bool Update(float delta)
 		return false;
 	if (HonkCooldown > 0.0)
 	{
-		HonkCooldown = FMax(0.0, HonkCooldown-Abs(delta));
+		HonkCooldown = FMax(0.0, HonkCooldown-FMax(0.0, delta));
 		if (delta != 0.0)
 		{
 			if (HonkCooldown <= 0.3)
@@ -831,7 +834,7 @@ final private simulated function bool PerformScooterHonk() //Returns false if Ow
 		if (HonkParticleComponent != None)
 			HonkParticleComponent.SetActive(true);
 		Owner.PlaySound(HonkSound);
-		ScareNearbyPawns(Owner, ShouldScarePlayers() && ModInstance != None && ModInstance.AllowPokemonScaring == 0);
+		ScareNearbyPawns(Owner, ShouldScarePlayers() && IsPokemonScaringAllowed());
 	}
 	SetPokemonAttackEmissionEffect(ScooterMeshComp, HonkCooldown);
 	ply = Hat_Player(Owner);
@@ -878,6 +881,8 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 				gpp.ScooterHornParticle.SetActive(true);
 		}
 		gpp.PlaySound(default.HonkSound);
+		if (ShouldScarePlayers() && IsPokemonScaringAllowed())
+			GhostPartyScareNearbyPlayers(gpp);
 	}
 	SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
 }
@@ -1022,12 +1027,15 @@ simulated function OnRemoved(Actor a)
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
-		ply.VehicleProperties.VehicleModeActive = false;
+		if (ScooterMeshComp != None && ply.VehicleProperties.VehicleMeshComponent == ScooterMeshComp)
+		{
+			ply.VehicleProperties.VehicleModeActive = false;
+			ply.VehicleProperties.VehicleMeshComponent = None;
+			ply.ResetMoveSpeed();
+		}
 		ply.SetStepUpOffsetMesh(None);
-		ply.ResetMoveSpeed();
-		if (ply.Mesh != None && (!ply.Mesh.bAttached || ply.Mesh.Owner != ply || (ScooterMeshComp != None && ScooterMeshComp.IsComponentAttached(ply.Mesh))))
+		if (ply.Mesh != None)
 			ply.AttachComponent(ply.Mesh);
-		ply.VehicleProperties.VehicleMeshComponent = None;
 		if (ExplodeParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
 			ply.WorldInfo.MyEmitterPool.SpawnEmitter(ExplodeParticle, ply.Location);
 		if (ExplodeSound != None)
@@ -1076,7 +1084,7 @@ simulated function CleanUp()
 
 final private simulated function UpdateHealth(int h)
 {
-	h = Clamp(h, 0, HealthMax);
+	h = Clamp(h, 0, 4);
 	if (h == Health)
 		return;
 	SetPokemonHealth(ScooterMeshComp, h);
@@ -1149,7 +1157,7 @@ final static function bool SetAnimNodesByNameActive(SkeletalMeshComponent comp, 
 	local bool bb;
 	if (n == '')
 		return false;
-	if (comp == None)
+	if (comp == None || comp.Animations == None)
 		return false;
 	AnimNodes = comp.FindAnimNodesByName(n);
 	for (i = 0; i < AnimNodes.Length; i++)
@@ -1222,8 +1230,6 @@ final static function GhostPartyScareNearbyPlayers(Hat_GhostPartyPlayer gpp) //O
 {
 	local WorldInfo wi;
 	local Hat_Player ply;
-	if (!ShouldScarePlayers())
-		return;
 	if (gpp == None)
 		return;
 	wi = (gpp.WorldInfo != None ? gpp.WorldInfo : class'WorldInfo'.static.GetWorldInfo());
@@ -1297,7 +1303,7 @@ static function bool ShouldScarePlayers()
 defaultproperties
 {
 	ScooterPhysicsAssetInstance = true
-	Health = HealthMax
+	Health = 4
 	WheelStopLeftSound = None
 	WheelStopRightSound = None
 	SpeedDustParticle = None

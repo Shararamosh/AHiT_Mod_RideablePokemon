@@ -57,6 +57,7 @@ final static function Array<class<Hat_StatusEffect_RideablePokemon>> GetStandard
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGastrodon_WS');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGastrodon_ES');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGarchomp_M');
+	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableTogekiss');
 	PokemonEffects.AddItem(class'Hat_StatusEffect_RideableGogoat');
 	return PokemonEffects;
 }

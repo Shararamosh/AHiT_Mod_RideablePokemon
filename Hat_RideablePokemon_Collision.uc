@@ -236,6 +236,7 @@ final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 		case class'Hat_StatusEffect_RideableGastrodon_ES'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableGarchomp_M'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableGarchomp_F'.default.ScooterMesh:
+		case class'Hat_StatusEffect_RideableTogekiss'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableLeafeon'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableGlaceon'.default.ScooterMesh:
 		case class'Hat_StatusEffect_RideableGiratina'.default.ScooterMesh:
