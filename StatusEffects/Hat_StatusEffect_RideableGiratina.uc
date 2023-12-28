@@ -60,7 +60,7 @@ static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
 static function SkeletalMeshComponent GetGiratinaAttachment(SkeletalMeshComponent ParentMesh)
 {
 	local SkeletalMeshComponent comp;
-	if (ParentMesh == None || ParentMesh.SkeletalMesh != default.ScooterMesh)
+	if (ParentMesh == None || !IsPokemonSkeletalMesh(ParentMesh.SkeletalMesh))
 		return None;
 	foreach ParentMesh.AttachedComponents(class'SkeletalMeshComponent', comp)
 	{
@@ -76,7 +76,7 @@ static function SkeletalMeshComponent AddGiratinaAttachment(SkeletalMeshComponen
 {
 	local SkeletalMeshComponent comp;
 	local bool b;
-	if (ParentMesh == None || ParentMesh.SkeletalMesh != default.ScooterMesh)
+	if (ParentMesh == None || !IsPokemonSkeletalMesh(ParentMesh.SkeletalMesh))
 		return None;
 	comp = GetGiratinaAttachment(ParentMesh);
 	if (comp == None)
@@ -117,7 +117,7 @@ static function bool SetGiratinaAttachmentProperties(SkeletalMeshComponent Targe
 
 static function bool SetGiratinaAttachmentParentProperties(SkeletalMeshComponent ParentMesh, SkeletalMeshComponent TargetMesh)
 {
-	if (ParentMesh == None || ParentMesh.SkeletalMesh != default.ScooterMesh || TargetMesh == None)
+	if (ParentMesh == None || !IsPokemonSkeletalMesh(ParentMesh.SkeletalMesh) || TargetMesh == None)
 		return false;
 	TargetMesh.SetLightEnvironment(ParentMesh.LightEnvironment);
 	TargetMesh.SetShadowParent(ParentMesh);

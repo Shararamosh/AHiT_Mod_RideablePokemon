@@ -23,7 +23,7 @@ enum NotifyType
 var transient private Array<Hat_GhostPartyPlayerStateBase> RideablePokemonGppStates;
 var transient private Hat_MusicNodeBlend_Dynamic FurretMusicTrack;
 var transient private Array<Hat_Player> CurrentPlayers;
-var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision;
+var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision, AllowTimedEventSkins;
 
 static function bool UpdatePokemonSelectNotifyLevelBit() //Returns true if level bit was less than 1 and subtitle message should be displayed.
 {
@@ -64,12 +64,17 @@ static function bool RemovePokemonSelectNotifyLevelBit() //Returns true if level
 
 static function bool IsCollisionEnabled()
 {
-	return (GetConfigValue(default.Class, 'EnableCollision') == 0);
+	return (GetConfigValue(default.Class, NameOf(default.EnableCollision)) < 1);
 }
 
 static function bool IsPokemonScaringAllowed()
 {
-	return (GetConfigValue(default.Class, 'AllowPokemonScaring') == 0);
+	return (GetConfigValue(default.Class, NameOf(default.AllowPokemonScaring)) < 1);
+}
+
+static function bool AreTimedEventSkinsAllowed()
+{
+	return (GetConfigValue(default.Class, NameOf(default.AllowTimedEventSkins)) < 1);
 }
 
 static function string GetClassPathName(class<Object> c)
@@ -537,7 +542,7 @@ simulated function bool CleanUpLocalPlayers(bool IsGamePaused)
 			continue;
 		if (!CurrentPlayers[i].HasStatusEffect(class'Hat_StatusEffect_RideableFurret', false))
 			continue;
-		if (class'Hat_StatusEffect_RideablePokemon'.static.AllowLocalPlayerSpeedDustParticle(CurrentPlayers[i]))
+		if (class'Hat_StatusEffect_RideablePokemon'.static.AllowSpeedDustParticle(CurrentPlayers[i].Velocity, CurrentPlayers[i].GroundSpeed, true, CurrentPlayers[i].VehicleProperties.Throttle))
 			ShouldLocalMusicBeDisabled = false;
 	}
 	if (FurretMusic == 1)
@@ -571,15 +576,15 @@ simulated function bool CleanUpOnlinePlayers(bool IsGamePaused)
 			continue;
 		if (gpp.ScooterMesh == None)
 			continue;
-		if (gpp.ScooterMesh.SkeletalMesh != class'Hat_StatusEffect_RideableFurret'.default.ScooterMesh)
+		if (!class'Hat_StatusEffect_RideableFurret'.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 			continue;
-		if (!class'Hat_StatusEffect_RideablePokemon'.static.AllowOnlinePlayerSpeedDustParticle(gpp))
+		if (!class'Hat_StatusEffect_RideablePokemon'.static.AllowSpeedDustParticle(gpp.Velocity, gpp.PlayerVisualClass != None ? gpp.PlayerVisualClass.default.GroundSpeed : class'Hat_Player_HatKid'.default.GroundSpeed))
 			continue;
 		for (j = 0; j < CurrentPlayers.Length; j++)
 		{
 			if (CurrentPlayers[j] == None)
 				continue;
-			if (VSizeSq(CurrentPlayers[j].Location-gpp.Location) > f*f)
+			if (VSizeSq(CurrentPlayers[j].Location-gpp.Location) > Square(f))
 				continue;
 			if (class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(CurrentPlayers[j]) == None)
 				continue;

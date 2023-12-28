@@ -119,7 +119,7 @@ final static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Ha
 	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(gpp);
 	if (PokemonEffect == None)
 		return;
-	if (!gpp.PlayerState.UnreliableState.IsOnScooter && gpp.ScooterMesh != None && gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
+	if (!gpp.PlayerState.UnreliableState.IsOnScooter && gpp.ScooterMesh != None && PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 	{
 		f = gpp.ScooterMesh.Scale;
 		v = gpp.ScooterMesh.Scale3D;
@@ -160,7 +160,7 @@ final static function SetOnlinePokemonHealth(Hat_GhostPartyPlayer gpp, class<Hat
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
+	if (PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 		PokemonEffect.static.SetPokemonHealth(gpp.ScooterMesh, h);
 }
 
@@ -168,15 +168,19 @@ final static function SetOnlinePokemonWireframe(Hat_GhostPartyPlayer gpp, class<
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
-		IsWireframe ? PokemonEffect.static.SetPokemonWireframeMaterials(gpp.ScooterMesh) : PokemonEffect.static.SetPokemonStandardMaterials(gpp.ScooterMesh);
+	if (!PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+		return;
+	if (IsWireframe)
+		PokemonEffect.static.SetPokemonWireframeMaterials(gpp.ScooterMesh);
+	else
+		PokemonEffect.static.SetPokemonStandardMaterials(gpp.ScooterMesh);
 }
 
 final static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsMuddy)
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (gpp.ScooterMesh.SkeletalMesh == PokemonEffect.default.ScooterMesh)
+	if (PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 		PokemonEffect.static.SetPokemonMuddyEffect(gpp.ScooterMesh, IsMuddy);
 }
 
@@ -228,7 +232,7 @@ final static function HandleHookedOnlinePlayerState(Hat_GhostPartyPlayerStateBas
 	SendOnlinePartyCommandWithModInstance("PokemonRideStartQuery", ModInstance, , PlayerState);
 }
 
-final static function CondSendRideablePokemon(RideablePokemon_Script ModInstance, optional Hat_GhostPartyPlayerStateBase receiver)
+final static function CondSendRideablePokemon(RideablePokemon_Script ModInstance, optional Hat_GhostPartyPlayerStateBase Receiver)
 {
 	local WorldInfo wi;
 	local Hat_Player ply;
@@ -244,7 +248,7 @@ final static function CondSendRideablePokemon(RideablePokemon_Script ModInstance
 			continue;
 		s = Hat_StatusEffect_RideablePokemon(ply.GetStatusEffect(class'Hat_StatusEffect_RideablePokemon', true));
 		if (s != None)
-			SendOnlinePartyCommandWithModInstance(s.GetLocalName()$"RideStart", ModInstance, ply, receiver);
+			SendOnlinePartyCommandWithModInstance(s.GetLocalName()$"RideStart", ModInstance, ply, Receiver);
 	}
 }
 

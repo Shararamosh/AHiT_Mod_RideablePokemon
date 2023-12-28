@@ -17,7 +17,7 @@ static function bool ModifyPokemonEyes(SkeletalMeshComponent comp, int h)
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	switch(Clamp(h, 0, 4))
 	{
@@ -50,7 +50,7 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	if (DoesScream)
 		NewTex = Texture2D'RideableGlaceon_Package.Textures.pm0471_00_mouth03_col';
@@ -68,6 +68,50 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 static function bool IsTiedToFlair()
 {
 	return true;
+}
+
+static function SkeletalMesh GetPokemonSkeletalMesh()
+{
+	if (AreTimedEventSkinsAllowed() && class'Hat_SeqCond_IsTimedEvent'.static.IsTimedEvent(ETimedEvent_Winter))
+		return SkeletalMesh'RideableGlaceon_Package.models.Glaceon_pgo_winter2021';
+	return Super.GetPokemonSkeletalMesh();
+}
+
+static function PhysicsAsset GetPokemonPhysicsAsset(SkeletalMesh sm)
+{
+	switch(sm)
+	{
+		case SkeletalMesh'RideableGlaceon_Package.models.Glaceon_pgo_winter2021':
+			return PhysicsAsset'RideableGlaceon_Package.Physics.Glaceon_pgo_winter2021_Physics';
+		default:
+			return Super.GetPokemonPhysicsAsset(sm);
+	}
+}
+
+static function Array<MaterialInterface> GetPokemonWireframeMaterials(SkeletalMesh sm)
+{
+	local Array<MaterialInterface> mats;
+	mats = Super.GetPokemonWireframeMaterials(sm);
+	switch(sm)
+	{
+		case SkeletalMesh'RideableGlaceon_Package.models.Glaceon_pgo_winter2021':
+			mats.AddItem(Material'RideableGlaceon_Package.Materials.pm0471_00_glacia_pgo_winter2021_Wireframe');
+			break;
+		default:
+			break;
+	}
+	return mats;
+}
+
+static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
+{
+	switch(sm)
+	{
+		case SkeletalMesh'RideableGlaceon_Package.models.Glaceon_pgo_winter2021':
+			return true;
+		default:
+			return Super.IsPokemonSkeletalMesh(sm);
+	}
 }
 
 defaultproperties

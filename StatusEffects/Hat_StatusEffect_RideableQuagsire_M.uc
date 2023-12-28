@@ -26,7 +26,7 @@ static function bool ModifyPokemonEyes(SkeletalMeshComponent comp, int h)
 {
 	local MaterialInstance inst;
 	local Texture OldTex, t1, t2;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	switch(Clamp(h, 0, 4))
 	{

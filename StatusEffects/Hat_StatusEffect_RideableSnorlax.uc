@@ -16,7 +16,7 @@ static function bool ModifyPokemonEyes(SkeletalMeshComponent comp, int h)
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	switch(Clamp(h, 0, 4))
 	{
@@ -49,7 +49,7 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	if (DoesScream)
 		NewTex = Texture2D'RideableFurret_Package.Textures.pm0162_00_00_Mouth03_col';
@@ -78,6 +78,50 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 		}
 	}
 	return true;
+}
+
+static function SkeletalMesh GetPokemonSkeletalMesh()
+{
+	if (AreTimedEventSkinsAllowed() && class'Hat_SeqCond_IsTimedEvent'.static.IsTimedEvent(ETimedEvent_Summer))
+		return SkeletalMesh'RideableSnorlax_Package.models.Snorlax_doodad_gofest_2022_hat2';
+	return Super.GetPokemonSkeletalMesh();
+}
+
+static function PhysicsAsset GetPokemonPhysicsAsset(SkeletalMesh sm)
+{
+	switch(sm)
+	{
+		case SkeletalMesh'RideableSnorlax_Package.models.Snorlax_doodad_gofest_2022_hat2':
+			return PhysicsAsset'RideableSnorlax_Package.Physics.Snorlax_doodad_gofest_2022_hat2_Physics';
+		default:
+			return Super.GetPokemonPhysicsAsset(sm);
+	}
+}
+
+static function Array<MaterialInterface> GetPokemonWireframeMaterials(SkeletalMesh sm)
+{
+	local Array<MaterialInterface> mats;
+	mats = Super.GetPokemonWireframeMaterials(sm);
+	switch(sm)
+	{
+		case SkeletalMesh'RideableSnorlax_Package.models.Snorlax_doodad_gofest_2022_hat2':
+			mats.AddItem(Material'RideableSnorlax_Package.Materials.doodad_gofest_2022_hat_Wireframe');
+			break;
+		default:
+			break;
+	}
+	return mats;
+}
+
+static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
+{
+	switch(sm)
+	{
+		case SkeletalMesh'RideableSnorlax_Package.models.Snorlax_doodad_gofest_2022_hat2':
+			return true;
+		default:
+			return Super.IsPokemonSkeletalMesh(sm);
+	}
 }
 
 defaultproperties

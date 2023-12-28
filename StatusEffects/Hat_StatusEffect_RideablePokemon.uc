@@ -48,6 +48,11 @@ final static function bool IsPokemonScaringAllowed()
 	return class'RideablePokemon_Script'.static.IsPokemonScaringAllowed();
 }
 
+final static function bool AreTimedEventSkinsAllowed()
+{
+	return class'RideablePokemon_Script'.static.AreTimedEventSkinsAllowed();
+}
+
 static function BattleActionAnims GetBattleActionAnims()
 {
 	local BattleActionAnims baa;
@@ -80,7 +85,7 @@ static function bool MaintainScooterMesh(Actor InActor, SkeletalMeshComponent In
 	if (InActor == None || InComponent == None || MeshComponent == None)
 		return false;
 	AnimateScooter(MeshComponent);
-	MeshComponent.SetPhysicsAsset(default.ScooterPhysics);
+	MeshComponent.SetPhysicsAsset(GetPokemonPhysicsAsset(MeshComponent.SkeletalMesh));
 	MeshComponent.SetTranslation(default.ScooterTranslation);
 	MeshComponent.SetLightEnvironment(InComponent.LightEnvironment);
 	MeshComponent.SetHasPhysicsAssetInstance(MeshComponent.PhysicsAsset != None && default.ScooterPhysicsAssetInstance);
@@ -153,11 +158,13 @@ final static function SetTimeAfterSpawnMesh(MeshComponent comp, float f)
 
 final static function AnimateScooter(SkeletalMeshComponent comp)
 {
+	local SkeletalMesh sm;
 	local bool UpdateAnims;
 	if (comp == None)
 		return;
-	if (comp.SkeletalMesh != default.ScooterMesh)
-		comp.SetSkeletalMesh(default.ScooterMesh);
+	sm = GetPokemonSkeletalMesh();
+	if (comp.SkeletalMesh != sm)
+		comp.SetSkeletalMesh(sm);
 	if (default.ScooterAnimSet == None)
 	{
 		if (comp.AnimSets.Length != 0)
@@ -773,29 +780,16 @@ simulated function bool Update(float delta)
 	if (ply.Physics == PHYS_Walking)
 		StartAirYaw = false;
 	if (SpeedDustParticleComponent != None)
-		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && AllowLocalPlayerSpeedDustParticle(ply));
+		SpeedDustParticleComponent.SetActive(ply.Physics == PHYS_Walking && AllowSpeedDustParticle(ply.Velocity, ply.GroundSpeed, true, ply.VehicleProperties.Throttle));
 	UpdateSounds(delta);
 	UpdateVisuals(class<Hat_Collectible_Skin_Wireframe>(class'Shara_SkinColors_Tools_Short_RPS'.static.GetCurrentSkin(ply)) != None, Hat_StatusEffect_Muddy(ply.GetStatusEffect(class'Hat_StatusEffect_Muddy', true)) != None);
 	UpdateHealth(ply.Health);
 	return true;
 }
 
-final static function bool AllowLocalPlayerSpeedDustParticle(Hat_Player ply) //Also used to determine whether to play Furret music or not.
+final static function bool AllowSpeedDustParticle(Vector Velocity, float GroundSpeed, optional bool UseThrottle, optional float Throttle) //Also used to determine whether to play Furret music or not.
 {
-	if (ply == None)
-		return false;
-	return (VSizeSq2D(ply.Velocity) > 0.25*ply.GroundSpeed*ply.GroundSpeed && Abs(ply.VehicleProperties.Throttle) > 0.1);
-}
-
-final static function bool AllowOnlinePlayerSpeedDustParticle(Hat_GhostPartyPlayer gpp) //Also used to determine whether to play Furret music or not.
-{
-	local class<Hat_Player> PlayerClass;
-	if (gpp == None)
-		return false;
-	PlayerClass = gpp.PlayerVisualClass;
-	if (PlayerClass == None)
-		PlayerClass = class'Hat_Player_HatKid';
-	return (VSizeSq2D(gpp.Velocity) > 0.25*PlayerClass.default.GroundSpeed*PlayerClass.default.GroundSpeed);
+	return (VSizeSq2D(Velocity) > Square(0.5*GroundSpeed) && Abs(Throttle) > 0.1);
 }
 
 function bool OnDuck()
@@ -848,7 +842,7 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 	local float f;
 	if (gpp == None || gpp.ScooterMesh == None)
 		return;
-	if (gpp.ScooterMesh.SkeletalMesh != default.ScooterMesh)
+	if (!IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 		return;
 	if (AnimName == '')
 	{
@@ -887,9 +881,9 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 	SetPokemonAttackEmissionEffect(gpp.ScooterMesh, f);
 }
 
-final private simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPlayerMuddy)
+final private simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPlayerMuddy, optional bool ForceUpdate)
 {
-	if (IsPlayerWireframe != IsWireframe)
+	if (ForceUpdate || IsPlayerWireframe != IsWireframe)
 	{
 		if (IsPlayerWireframe)
 		{
@@ -904,7 +898,7 @@ final private simulated function UpdateVisuals(bool IsPlayerWireframe, bool IsPl
 			IsWireframe = false;
 		}
 	}
-	if (IsPlayerMuddy != IsMuddy)
+	if (ForceUpdate || IsPlayerMuddy != IsMuddy)
 	{
 		if (IsPlayerMuddy)
 		{
@@ -983,19 +977,22 @@ final static function SetAttackEmissionEffectMesh(MeshComponent comp, float Effe
 static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 {
 	local int i;
-	if (default.WireframeMaterials.Length < 1)
+	local Array<MaterialInterface> mats;
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	mats = GetPokemonWireframeMaterials(comp.SkeletalMesh);
+	if (mats.Length < 1)
 		return false;
-	for (i = 0; i < Min(comp.GetNumElements(), default.WireframeMaterials.Length); i++)
-		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, default.WireframeMaterials[i]);
+	for (i = 0; i < Min(comp.GetNumElements(), mats.Length); i++)
+		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, mats[i]);
 	return true;
 }
 
 static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
 {
-	if (comp != None && comp.SkeletalMesh == default.ScooterMesh)
-		return SetSkeletalMeshDefaultMaterialInstanceParents(comp);
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
+		return false;
+	return SetSkeletalMeshDefaultMaterialInstanceParents(comp);
 }
 
 final static function bool SetSkeletalMeshDefaultMaterialInstanceParents(SkeletalMeshComponent comp)
@@ -1184,14 +1181,14 @@ final static function bool SetAnimNodeActive(AnimNodeBlendBase anbb, bool b, flo
 		if (habb != None)
 			habb.SetActiveChild(int(b), habb.GetBlendTime(int(b)));
 		else
-			anbl.SetActiveChild(int(b), Abs(DefaultTime));
+			anbl.SetActiveChild(int(b), FMax(0.0, DefaultTime));
 		return true;
 	}
 	anb = AnimNodeBlend(anbb);
 	if (anb == None)
 		return false;
 	if (anb.Child2Weight != float(b))
-		anb.SetBlendTarget(float(b), Abs(DefaultTime));
+		anb.SetBlendTarget(float(b), FMax(0.0, DefaultTime));
 	return true;
 }
 
@@ -1298,6 +1295,32 @@ static function bool IsDebugOnly()
 static function bool ShouldScarePlayers()
 {
 	return false;
+}
+
+static function SkeletalMesh GetPokemonSkeletalMesh()
+{
+	return default.ScooterMesh;
+}
+
+static function PhysicsAsset GetPokemonPhysicsAsset(SkeletalMesh sm)
+{
+	return default.ScooterPhysics;
+}
+
+static function Array<MaterialInterface> GetPokemonWireframeMaterials(SkeletalMesh sm)
+{
+	return default.WireframeMaterials;
+}
+
+static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
+{
+	switch(sm)
+	{
+		case default.ScooterMesh:
+			return true;
+		default:
+			return false;
+	}
 }
 
 defaultproperties

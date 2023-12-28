@@ -15,7 +15,7 @@ static function bool ModifyPokemonEyes(SkeletalMeshComponent comp, int h)
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	switch(Clamp(h, 0, 4))
 	{
@@ -48,7 +48,7 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || comp.SkeletalMesh != default.ScooterMesh)
+	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
 		return false;
 	if (DoesScream)
 		NewTex = Texture2D'RideableFurret_Package.Textures.pm0162_00_00_Mouth03_col';

@@ -217,34 +217,23 @@ final private simulated function ModifyOwnerProperties()
 
 final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 {
+	local int i;
+	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
 	if (comp == None)
 		return false;
-	switch(comp.SkeletalMesh)
+	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetStandardPokemonStatusEffects();
+	for (i = 0; i < PokemonEffects.Length; i++)
 	{
-		case class'Hat_StatusEffect_RideableNidoqueen'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableParasect'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableKangaskhan'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableSnorlax'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableFurret'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableQuagsire_M'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableQuagsire_F'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableOctillery_M'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableOctillery_F'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableFlygon'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableArmaldo'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGastrodon_WS'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGastrodon_ES'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGarchomp_M'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGarchomp_F'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableTogekiss'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableLeafeon'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGlaceon'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGiratina'.default.ScooterMesh:
-		case class'Hat_StatusEffect_RideableGogoat'.default.ScooterMesh:
+		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
 			return true;
-		default:
-			return false;
 	}
+	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetSpecialPokemonStatusEffects();
+	for (i = 0; i < PokemonEffects.Length; i++)
+	{
+		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
+			return true;
+	}
+	return false;
 }
 
 final static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
