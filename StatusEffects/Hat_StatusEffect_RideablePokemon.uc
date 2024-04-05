@@ -1081,17 +1081,21 @@ simulated function CleanUp()
 
 final private simulated function UpdateHealth(int h)
 {
+	local Name AnimName;
 	h = Clamp(h, 0, 4);
 	if (h == Health)
 		return;
-	SetPokemonHealth(ScooterMeshComp, h);
+	if (h < Health)
+		AnimName = GetRandomBattleDamageAnimation();
+	SetPokemonHealth(ScooterMeshComp, h, AnimName);
 	Health = h;
-	class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$Health, Hat_Player(Owner), , ModInstance);
+	class'RideablePokemon_OnlinePartyHandler'.static.SendOnlinePartyCommand(GetLocalName()$"Health"$(AnimName != '' ? "_"$AnimName : ""), Hat_Player(Owner), , ModInstance);
 }
 
-final static function SetPokemonHealth(SkeletalMeshComponent comp, int h)
+final static function SetPokemonHealth(SkeletalMeshComponent comp, int h, Name AnimName)
 {
 	ModifyPokemonEyes(comp, h);
+	SetPokemonCustomBattleActionAnimation(comp, AnimName);
 	SetAnimNodesByNameActive(comp, 'LowHealth', h < 2);
 }
 
@@ -1110,6 +1114,13 @@ final static function Name GetRandomBattleActionAnimation()
 	if (AnimsList.Length < 0)
 		return '';
 	return AnimsList[Rand(AnimsList.Length)];
+}
+
+final static function Name GetRandomBattleDamageAnimation()
+{
+	local BattleActionAnims baa;
+	baa = GetBattleActionAnims();
+	return baa.TakingDamageAnims[Rand(baa.TakingDamageAnims.Length)];
 }
 
 final static function float SetPokemonCustomBattleActionAnimation(SkeletalMeshComponent comp, Name AnimName)

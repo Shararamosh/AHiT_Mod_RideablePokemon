@@ -381,6 +381,7 @@ static function RemoveModItems()
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_LeafeonCap', State_Remove));
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_RibbonBoater', State_Remove));
 	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SpringHat', State_Remove));
+	ModItems.AddItem(MakeLoadoutItem(class'Hat_CosmeticItemQualityInfo_Sprint_SylveonCap', State_Remove));
 	HandleAllLoadoutItems(ModItems);
 }
 
@@ -522,7 +523,7 @@ simulated event Tick(float DeltaTime)
 		StartFurretMusic();
 }
 
-simulated function bool CleanUpLocalPlayers(bool IsGamePaused)
+simulated function bool CleanUpLocalPlayers(bool IsGamePaused) //Returns true if Furret Music should be disabled.
 {
 	local int i;
 	local bool ShouldLocalMusicBeDisabled;
@@ -545,12 +546,12 @@ simulated function bool CleanUpLocalPlayers(bool IsGamePaused)
 		if (class'Hat_StatusEffect_RideablePokemon'.static.AllowSpeedDustParticle(CurrentPlayers[i].Velocity, CurrentPlayers[i].GroundSpeed, true, CurrentPlayers[i].VehicleProperties.Throttle))
 			ShouldLocalMusicBeDisabled = false;
 	}
-	if (FurretMusic == 1)
+	if (FurretMusic > 0)
 		return true;
 	return ShouldLocalMusicBeDisabled;
 }
 
-simulated function bool CleanUpOnlinePlayers(bool IsGamePaused)
+simulated function bool CleanUpOnlinePlayers(bool IsGamePaused) //Returns true if Furret Music should be disabled.
 {
 	local int i, j;
 	local float f;

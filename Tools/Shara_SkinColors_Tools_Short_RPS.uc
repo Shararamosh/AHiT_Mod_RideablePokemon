@@ -141,7 +141,7 @@ static function MaterialInterface GetActualMaterial(MaterialInterface mat) //Ret
 	return inst;
 }
 
-static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. Returns true if  transient MaterialInstance was created.
+final static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. Returns true if transient MaterialInstance was created.
 {
 	local MaterialInstance inst;
 	local MaterialInterface mat;
@@ -160,30 +160,30 @@ static function bool SetMaterialParentToInstance(MeshComponent comp, int i, Mate
 		default:
 			break;
 	}
-	if (mat != NewParent) //Applying transient MaterialInstance. Need to copy its parameters. Unfortunately, this will require creating one new MaterialInstance.
+	if (mat != NewParent) //Applying transient MaterialInstance. Need to copy its parameters. Unfortunately, this will require creating one new cloned MaterialInstance.
 	{
-		if (comp.GetMaterial(i) != NewParent)
-			comp.SetMaterial(i, NewParent);
-		if (MaterialInstanceConstant(NewParent) != None)
-			comp.CreateAndSetMaterialInstanceConstant(i);
-		else
-			comp.CreateAndSetMaterialInstanceTimeVarying(i);
+		inst = MaterialInstance(NewParent);
+		inst = new(comp) inst.Class(inst);
+		if (inst != None) //Successfully cloned target MaterialInstance. It already has all overriding parameters, so we set Editor MaterialInterface as its Parent and then call SetMaterial.
+		{
+			inst.SetParent(mat);
+			comp.SetMaterial(i, inst);
+			return true;
+		}
 	}
 	inst = MaterialInstance(comp.GetMaterial(i));
 	if (inst != None && inst.IsInMapOrTransientPackage())
 	{
 		if (inst.Parent != mat)
 			inst.SetParent(mat);
+		return false;
 	}
+	if (comp.GetMaterial(i) != mat)
+		comp.SetMaterial(i, mat);
+	if (MaterialInstanceConstant(mat) != None)
+		comp.CreateAndSetMaterialInstanceConstant(i);
 	else
-	{
-		if (comp.GetMaterial(i) != mat)
-			comp.SetMaterial(i, mat);
-		if (MaterialInstanceConstant(mat) != None)
-			comp.CreateAndSetMaterialInstanceConstant(i);
-		else
-			comp.CreateAndSetMaterialInstanceTimeVarying(i);
-	}
+		comp.CreateAndSetMaterialInstanceTimeVarying(i);
 	return true;
 }
 
