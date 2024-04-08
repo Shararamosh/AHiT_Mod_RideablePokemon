@@ -183,10 +183,10 @@ simulated event Tick(float DeltaTime)
 
 final private simulated function ModifyOwnerProperties()
 {
-	local Hat_GhostPartyPlayer gpp;
 	local bool b;
+	local Hat_GhostPartyPlayer gpp;
 	gpp = Hat_GhostPartyPlayer(Owner);
-	if (gpp == None || !IsPokemonMesh(gpp.ScooterMesh))
+	if (gpp == None || !class'RideablePokemon_OnlinePartyHandler'.static.IsPokemonMesh(gpp.ScooterMesh))
 	{
 		ApplyOwnerCollisionProperties(false);
 		return;
@@ -195,45 +195,6 @@ final private simulated function ModifyOwnerProperties()
 	ApplyOwnerCollisionProperties(b);
 	if (gpp.ScooterMesh.CollideActors != b || gpp.ScooterMesh.BlockActors != b)
 		gpp.ScooterMesh.SetActorCollision(b, b, gpp.ScooterMesh.AlwaysCheckCollision);
-	if (gpp.SprintParticle != None)
-	{
-		gpp.SprintParticle.SetActive(false);
-		gpp.SprintParticle.DetachFromAny();
-		gpp.SprintParticle = None;
-	}
-	if (gpp.ScooterEngineSound != None)
-	{
-		gpp.ScooterEngineSound.Stop();
-		gpp.ScooterEngineSound.DetachFromAny();
-		gpp.ScooterEngineSound = None;
-	}
-	if (gpp.ScooterDrivingSound != None)
-	{
-		gpp.ScooterDrivingSound.Stop();
-		gpp.ScooterDrivingSound.DetachFromAny();
-		gpp.ScooterDrivingSound = None;
-	}
-}
-
-final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
-{
-	local int i;
-	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
-	if (comp == None)
-		return false;
-	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetStandardPokemonStatusEffects();
-	for (i = 0; i < PokemonEffects.Length; i++)
-	{
-		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
-			return true;
-	}
-	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetSpecialPokemonStatusEffects();
-	for (i = 0; i < PokemonEffects.Length; i++)
-	{
-		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
-			return true;
-	}
-	return false;
 }
 
 final static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Actor a)
@@ -285,10 +246,10 @@ final static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)
 
 final static function bool DestroyCollisionActor(Actor a)
 {
-	local bool b;
-	local Array<Hat_RideablePokemon_Collision> RemoveList;
-	local Hat_RideablePokemon_Collision ca;
 	local int i;
+	local bool b;
+	local Hat_RideablePokemon_Collision ca;
+	local Array<Hat_RideablePokemon_Collision> RemoveList;
 	if (a == None)
 		return false;
 	foreach a.ChildActors(class'Hat_RideablePokemon_Collision', ca)

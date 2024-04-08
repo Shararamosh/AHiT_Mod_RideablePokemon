@@ -466,6 +466,7 @@ event OnModUnloaded()
 	RemoveModItems();
 	RemoveModActors();
 	RemoveModLevelBits();
+	ClearGppStates();
 }
 
 event OnHookedActorSpawn(Object NewActor, Name Identifier)
@@ -553,10 +554,10 @@ simulated function bool CleanUpLocalPlayers(bool IsGamePaused) //Returns true if
 
 simulated function bool CleanUpOnlinePlayers(bool IsGamePaused) //Returns true if Furret Music should be disabled.
 {
-	local int i, j;
 	local float f;
-	local bool ShouldOnlineMusicBeDisabled;
+	local int i, j;
 	local Hat_GhostPartyPlayer gpp;
+	local bool ShouldOnlineMusicBeDisabled;
 	ShouldOnlineMusicBeDisabled = true;
 	f = GetFurretMusicListeningRadius();
 	for (i = RideablePokemonGppStates.Length-1; i > -1; i--)
@@ -566,18 +567,17 @@ simulated function bool CleanUpOnlinePlayers(bool IsGamePaused) //Returns true i
 			RideablePokemonGppStates.Remove(i, 1);
 			continue;
 		}
+		gpp = Hat_GhostPartyPlayer(RideablePokemonGppStates[i].GhostActor);
+		if (gpp == None)
+			continue;
+		if (gpp.SprintParticle != None)
+			gpp.SprintParticle.SetActive(false);
+		RemoveOnlinePlayerScooterSounds(gpp);
 		if (IsGamePaused)
 			continue;
 		if (!ShouldOnlineMusicBeDisabled || f <= 0.0)
 			continue;
-		if (!RideablePokemonGppStates[i].UnreliableState.IsOnScooter)
-			continue;
-		gpp = Hat_GhostPartyPlayer(RideablePokemonGppStates[i].GhostActor);
-		if (gpp == None)
-			continue;
-		if (gpp.ScooterMesh == None)
-			continue;
-		if (!class'Hat_StatusEffect_RideableFurret'.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+		if (gpp.ScooterMesh == None || !class'Hat_StatusEffect_RideableFurret'.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
 			continue;
 		if (!class'Hat_StatusEffect_RideablePokemon'.static.AllowSpeedDustParticle(gpp.Velocity, gpp.PlayerVisualClass != None ? gpp.PlayerVisualClass.default.GroundSpeed : class'Hat_Player_HatKid'.default.GroundSpeed))
 			continue;
@@ -650,6 +650,76 @@ simulated function RemoveGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 	if (PlayerState == None)
 		return;
 	RideablePokemonGppStates.RemoveItem(PlayerState);
+}
+
+simulated function ClearGppStates()
+{
+	local int i;
+	local Hat_GhostPartyPlayer gpp;
+	for (i = 0; i < RideablePokemonGppStates.Length; i++)
+	{
+		if (RideablePokemonGppStates[i] == None)
+			continue;
+		gpp = Hat_GhostPartyPlayer(RideablePokemonGppStates[i].GhostActor);
+		if (gpp == None)
+			continue;
+		RestoreScooterMesh(gpp.ScooterMesh);
+		RestoreOnlinePlayerScooterSounds(gpp, RideablePokemonGppStates[i].UnreliableState.IsOnScooter);
+	}
+	RideablePokemonGppStates.Length = 0;
+}
+
+static function RestoreScooterMesh(SkeletalMeshComponent comp)
+{
+	if (!class'RideablePokemon_OnlinePartyHandler'.static.IsPokemonMesh(comp))
+		return;
+	comp.SetSkeletalMesh(class'Hat_StatusEffect_BadgeScooter'.default.ScooterMesh);
+	comp.SetPhysicsAsset(class'Hat_StatusEffect_BadgeScooter'.default.ScooterPhysics);
+	comp.SetHasPhysicsAssetInstance(class'Hat_StatusEffect_BadgeScooter'.default.ScooterPhysicsAssetInstance);
+	if (comp.AnimSets.Length != 0)
+	{
+		comp.AnimSets.Length = 0;
+		comp.UpdateAnimations();
+	}
+	if (comp.AnimTreeTemplate != class'Hat_StatusEffect_BadgeScooter'.default.ScooterAnimTree)
+		comp.SetAnimTreeTemplate(class'Hat_StatusEffect_BadgeScooter'.default.ScooterAnimTree);
+	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp, true);
+}
+
+static function RestoreOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp, bool IsOnScooter)
+{
+	if (gpp == None)
+		return;
+	if (gpp.ScooterEngineSound == None && IsOnScooter)
+	{
+		gpp.ScooterEngineSound = new(gpp) class'AudioComponent'(class'Hat_StatusEffect_BadgeScooter'.default.EngineSound);
+		if (gpp.ScooterEngineSound != None)
+			gpp.AttachComponent(gpp.ScooterEngineSound);
+	}
+	if (gpp.ScooterDrivingSound == None && IsOnScooter)
+	{
+		gpp.ScooterDrivingSound = new(gpp) class'AudioComponent'(class'Hat_StatusEffect_BadgeScooter'.default.EngineDrivingSound);
+		if (gpp.ScooterDrivingSound != None)
+			gpp.AttachComponent(gpp.ScooterDrivingSound);
+	}
+}
+
+static function RemoveOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp)
+{
+	if (gpp == None)
+		return;
+	if (gpp.ScooterEngineSound != None)
+	{
+		gpp.ScooterEngineSound.Stop();
+		gpp.ScooterEngineSound.DetachFromAny();
+		gpp.ScooterEngineSound = None;
+	}
+	if (gpp.ScooterDrivingSound != None)
+	{
+		gpp.ScooterDrivingSound.Stop();
+		gpp.ScooterDrivingSound.DetachFromAny();
+		gpp.ScooterDrivingSound = None;
+	}
 }
 
 static function bool ShowSubtitleForPlayer(PlayerController pc, optional string msg, optional byte r = 255, optional byte g = 255, optional byte b = 255, optional float closeAfter = 5.0, optional Array<KeywordLocalizationInfo> Keywords)

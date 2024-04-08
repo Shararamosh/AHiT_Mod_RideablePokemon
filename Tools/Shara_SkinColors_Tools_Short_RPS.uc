@@ -57,26 +57,38 @@ static function SetTransitionEffectMesh(MeshComponent comp, Name n, float start,
 		SetMaterialInstanceTransitionEffect(MaterialInstance(comp.GetMaterial(i)), n, icf);
 }	
 
-static function ResetMaterials(MeshComponent comp)
+final static function ResetMaterials(MeshComponent comp, optional bool UseDefaultMaterials, optional bool KeepTransientInstances, optional bool ClearTransientInstancesParameters)
 {
 	local int i;
-	local SkeletalMeshComponent skmComp;
-	local StaticMeshComponent stmComp;
 	local bool IsDefaultMesh;
+	local MaterialInstance inst;
+	local StaticMeshComponent stmComp;
+	local SkeletalMeshComponent skmComp;
 	if (comp == None)
 		return;
-	skmComp = SkeletalMeshComponent(comp);
-	stmComp = StaticMeshComponent(comp);
-	if (skmComp != None && skmComp.SkeletalMesh == skmComp.default.SkeletalMesh)
-		IsDefaultMesh = true;
-	else if (stmComp != None && stmComp.StaticMesh == stmComp.default.StaticMesh)
-		IsDefaultMesh = true;
-	for (i = 0; i < comp.GetNumElements(); i++)
+	if (UseDefaultMaterials)
 	{
+		skmComp = SkeletalMeshComponent(comp);
+		stmComp = StaticMeshComponent(comp);
+		if (skmComp != None && skmComp.SkeletalMesh == skmComp.default.SkeletalMesh)
+			IsDefaultMesh = true;
+		else if (stmComp != None && stmComp.StaticMesh == stmComp.default.StaticMesh)
+			IsDefaultMesh = true;
+	}
+	for (i = 0; i < comp.Materials.Length; i++)
+	{
+		inst = MaterialInstance(comp.GetMaterial(i));
 		if (IsDefaultMesh && i < comp.default.Materials.Length)
 			comp.SetMaterial(i, comp.default.Materials[i]);
 		else
 			comp.SetMaterial(i, None);
+		if (KeepTransientInstances && inst != None && inst.IsInMapOrTransientPackage())
+		{
+			inst.SetParent(comp.GetMaterial(i));
+			comp.SetMaterial(i, inst);
+			if (ClearTransientInstancesParameters)
+				inst.ClearParameterValues(false);
+		}
 	}
 }
 

@@ -728,17 +728,16 @@ simulated function bool Update(float delta)
 		return false;
 	if (HonkCooldown > 0.0)
 	{
-		HonkCooldown = FMax(0.0, HonkCooldown-FMax(0.0, delta));
-		if (delta != 0.0)
+		if (HonkCooldown > 0.3)
 		{
-			if (HonkCooldown <= 0.3)
-			{
-				if (HonkParticleComponent != None)
-					HonkParticleComponent.SetActive(false);
-				if (HonkCooldown == 0.0)
-					SetPokemonIdle();
-			}
+			HonkCooldown = FMax(0.0, HonkCooldown-FMax(0.0, delta));
+			if (HonkCooldown <= 0.3 && HonkParticleComponent != None)
+				HonkParticleComponent.SetActive(false);
 		}
+		else
+			HonkCooldown = FMax(0.0, HonkCooldown-FMax(0.0, delta));
+		if (HonkCooldown == 0.0)
+			SetPokemonIdle();
 	}
 	else
 		HonkCooldown = 0.0;
@@ -809,11 +808,9 @@ function OnDoHonk()
 
 final private simulated function bool PerformScooterHonk() //Returns false if Owner is None or its Physics is not PHYS_Walking.
 {
-	local Hat_Player ply;
 	local Name AnimName;
-	if (Owner == None)
-		return false;
-	if (Owner.Physics != PHYS_Walking)
+	local Hat_Player ply;
+	if (Owner == None || Owner.Physics != PHYS_Walking)
 		return false;
 	if (HonkCooldown > 0.0)
 		return true;
@@ -1127,7 +1124,7 @@ final static function float SetPokemonCustomBattleActionAnimation(SkeletalMeshCo
 {
 	local float f;
 	local AnimNodePlayCustomAnim CustomAnimNode;
-	if (comp == None || AnimName == '' || comp.FindAnimSequence(AnimName) == None)
+	if (comp == None || AnimName == '' || comp.Animations == None || comp.FindAnimSequence(AnimName) == None)
 		return 0.0;
 	f = 0.0;
 	foreach comp.AllAnimNodes(class'AnimNodePlayCustomAnim', CustomAnimNode)
@@ -1178,9 +1175,9 @@ final static function bool SetAnimNodesByNameActive(SkeletalMeshComponent comp, 
 
 final static function bool SetAnimNodeActive(AnimNodeBlendBase anbb, bool b, float DefaultTime)
 {
+	local AnimNodeBlend anb;
 	local AnimNodeBlendList anbl;
 	local Hat_AnimBlendBase habb;
-	local AnimNodeBlend anb;
 	if (anbb == None || anbb.Children.Length < 2)
 		return false;
 	anbl = AnimNodeBlendList(anbb);
@@ -1327,6 +1324,8 @@ static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
 {
 	switch(sm)
 	{
+		case None:
+			return false;
 		case default.ScooterMesh:
 			return true;
 		default:
