@@ -16,7 +16,7 @@ static function bool ModifyPokemonEyes(SkeletalMeshComponent comp, int h)
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
+	if (!IsPokemonMesh(comp))
 		return false;
 	switch(Clamp(h, 0, 4))
 	{
@@ -49,7 +49,7 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 {
 	local MaterialInstance inst;
 	local Texture OldTex, NewTex;
-	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
+	if (!IsPokemonMesh(comp))
 		return false;
 	if (DoesScream)
 		NewTex = Texture2D'RideableFlygon_Package.Textures.pm0330_00_Mouth03_col';
@@ -97,14 +97,18 @@ static function Array<MaterialInterface> GetPokemonWireframeMaterials(SkeletalMe
 	return mats;
 }
 
-static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
+static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 {
-	switch(sm)
+	if (comp == None)
+		return false;
+	switch(comp.SkeletalMesh)
 	{
+		case None:
+			return false;
 		case SkeletalMesh'RideableFlygon_Package.models.Flygon_doodad_gofest_2021_hat':
 			return true;
 		default:
-			return Super.IsPokemonSkeletalMesh(sm);
+			return Super.IsPokemonMesh(comp);
 	}
 }
 

@@ -839,7 +839,7 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 	local float f;
 	if (gpp == None || gpp.ScooterMesh == None)
 		return;
-	if (!IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+	if (!IsPokemonMesh(gpp.ScooterMesh))
 		return;
 	if (AnimName == '')
 	{
@@ -975,7 +975,7 @@ static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 {
 	local int i;
 	local Array<MaterialInterface> mats;
-	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
+	if (!IsPokemonMesh(comp))
 		return false;
 	mats = GetPokemonWireframeMaterials(comp.SkeletalMesh);
 	if (mats.Length < 1)
@@ -987,7 +987,7 @@ static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 
 static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
 {
-	if (comp == None || !IsPokemonSkeletalMesh(comp.SkeletalMesh))
+	if (!IsPokemonMesh(comp))
 		return false;
 	return SetSkeletalMeshDefaultMaterialInstanceParents(comp);
 }
@@ -1320,9 +1320,11 @@ static function Array<MaterialInterface> GetPokemonWireframeMaterials(SkeletalMe
 	return default.WireframeMaterials;
 }
 
-static function bool IsPokemonSkeletalMesh(SkeletalMesh sm)
+static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 {
-	switch(sm)
+	if (comp == None)
+		return false;
+	switch(comp.SkeletalMesh)
 	{
 		case None:
 			return false;

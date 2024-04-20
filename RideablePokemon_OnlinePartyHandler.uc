@@ -117,30 +117,35 @@ final static function bool UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, cla
 	return true;
 }
 
-final static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsOnScooter)
+final static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, bool IsOnScooter, bool ScooterIsSubcon)
 {
 	local float f;
 	local Vector v;
 	if (gpp == None)
 		return;
-	class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(gpp);
-	if (PokemonEffect == None)
-		return;
-	if (!IsOnScooter && gpp.ScooterMesh != None && PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+	if (PokemonEffect != None && PokemonEffect.static.IsPokemonMesh(gpp.ScooterMesh))
 	{
-		if (PokemonEffect.default.ExplodeParticle != None && gpp.WorldInfo != None && gpp.WorldInfo.MyEmitterPool != None)
-			gpp.Worldinfo.MyEmitterPool.SpawnEmitter(PokemonEffect.default.ExplodeParticle, gpp.Location);
-		if (PokemonEffect.default.ExplodeSound != None)
-			gpp.PlaySound(PokemonEffect.default.ExplodeSound);
-		f = gpp.ScooterMesh.Scale;
-		v = gpp.ScooterMesh.Scale3D;
-		gpp.ScooterMesh.DetachFromAny();
-		gpp.ScooterMesh = None;
-		RestoreOnlinePlayerMeshValuesFromScooter(gpp, f, v);
+		if (!IsOnScooter)
+		{
+			if (PokemonEffect.default.ExplodeParticle != None && gpp.WorldInfo != None && gpp.WorldInfo.MyEmitterPool != None)
+				gpp.Worldinfo.MyEmitterPool.SpawnEmitter(PokemonEffect.default.ExplodeParticle, gpp.Location);
+			if (PokemonEffect.default.ExplodeSound != None)
+				gpp.PlaySound(PokemonEffect.default.ExplodeSound);
+			if (gpp.SkeletalMeshComponent != None && gpp.ScooterMesh.IsComponentAttached(gpp.SkeletalMeshComponent))
+				gpp.AttachComponent(gpp.SkeletalMeshComponent);
+			f = gpp.ScooterMesh.Scale;
+			v = gpp.ScooterMesh.Scale3D;
+			gpp.ScooterMesh.DetachFromAny();
+			gpp.ScooterMesh = None;
+			RestoreOnlinePlayerMeshValuesFromScooter(gpp, f, v);
+		}
 	}
 	else
 		RestoreOnlinePlayerMeshValues(gpp);
-	class'RideablePokemon_Script'.static.RestoreOnlinePlayerScooterSounds(gpp, IsOnScooter);
+	if (!IsPokemonMesh(gpp.ScooterMesh))
+		class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(gpp);
+	if (IsOnScooter)
+		class'RideablePokemon_Script'.static.RestoreOnlinePlayerScooterSounds(gpp, IsOnScooter, ScooterIsSubcon);
 }
 
 final static function RestoreOnlinePlayerMeshValues(Hat_GhostPartyPlayer gpp)
@@ -176,7 +181,7 @@ final static function SetOnlinePokemonHealth(Hat_GhostPartyPlayer gpp, class<Hat
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+	if (PokemonEffect.static.IsPokemonMesh(gpp.ScooterMesh))
 		PokemonEffect.static.SetPokemonHealth(gpp.ScooterMesh, h, AnimName);
 }
 
@@ -184,7 +189,7 @@ final static function SetOnlinePokemonWireframe(Hat_GhostPartyPlayer gpp, class<
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (!PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+	if (!PokemonEffect.static.IsPokemonMesh(gpp.ScooterMesh))
 		return;
 	if (IsWireframe)
 		PokemonEffect.static.SetPokemonWireframeMaterials(gpp.ScooterMesh);
@@ -196,7 +201,7 @@ final static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayer gpp, class<Hat_
 {
 	if (gpp == None || PokemonEffect == None)
 		return;
-	if (PokemonEffect.static.IsPokemonSkeletalMesh(gpp.ScooterMesh.SkeletalMesh))
+	if (PokemonEffect.static.IsPokemonMesh(gpp.ScooterMesh))
 		PokemonEffect.static.SetPokemonMuddyEffect(gpp.ScooterMesh, IsMuddy);
 }
 
@@ -215,7 +220,7 @@ final static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostParty
 				ModInstance.RemoveGppState(Sender);
 			break;
 		case "ridestop":
-			DetachOnlinePokemonMesh(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, Sender.UnreliableState.IsOnScooter);
+			DetachOnlinePokemonMesh(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, Sender.UnreliableState.IsOnScooter, Sender.UnreliableState.ScooterIsSubcon);
 			ModInstance.RemoveGppState(Sender);
 			break;
 		case "wireframe":
@@ -285,13 +290,13 @@ final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 	PokemonEffects = GetStandardPokemonStatusEffects();
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
-		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
+		if (PokemonEffects[i].static.IsPokemonMesh(comp))
 			return true;
 	}
 	PokemonEffects = GetSpecialPokemonStatusEffects();
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
-		if (PokemonEffects[i].static.IsPokemonSkeletalMesh(comp.SkeletalMesh))
+		if (PokemonEffects[i].static.IsPokemonMesh(comp))
 			return true;
 	}
 	return false;
