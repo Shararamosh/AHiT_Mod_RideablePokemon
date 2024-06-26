@@ -110,9 +110,8 @@ final static function bool UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, cla
 		PokemonEffect.static.MaintainScooterMesh(gpp, gpp.SkeletalMeshComponent, gpp.ScooterMesh);
 	if (gpp.ScooterMesh == None)
 		return false;
-	if (gpp.SprintParticle != None)
-		gpp.SprintParticle.SetActive(false);
-	class'RideablePokemon_Script'.static.RemoveOnlinePlayerScooterSounds(gpp);
+	class'RideablePokemon_Script'.static.ApplyOnlinePlayerScooterParticles(gpp, PokemonEffect);
+	class'RideablePokemon_Script'.static.ApplyOnlinePlayerScooterSounds(gpp, PokemonEffect);
 	class'Hat_RideablePokemon_Collision'.static.SpawnOrGetCollisionActor(gpp);
 	return true;
 }
@@ -144,8 +143,8 @@ final static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Ha
 		RestoreOnlinePlayerMeshValues(gpp);
 	if (!IsPokemonMesh(gpp.ScooterMesh))
 		class'Hat_RideablePokemon_Collision'.static.DestroyCollisionActor(gpp);
-	if (IsOnScooter)
-		class'RideablePokemon_Script'.static.RestoreOnlinePlayerScooterSounds(gpp, IsOnScooter, ScooterIsSubcon);
+	class'RideablePokemon_Script'.static.RestoreOnlinePlayerScooterParticles(gpp, PokemonEffect, IsOnScooter, ScooterIsSubcon);
+	class'RideablePokemon_Script'.static.RestoreOnlinePlayerScooterSounds(gpp, PokemonEffect, IsOnScooter, ScooterIsSubcon);
 }
 
 final static function RestoreOnlinePlayerMeshValues(Hat_GhostPartyPlayer gpp)
@@ -283,23 +282,28 @@ final static function CondSendRideablePokemon(RideablePokemon_Script ModInstance
 
 final static function bool IsPokemonMesh(SkeletalMeshComponent comp)
 {
+	return (GetPokemonStatusEffectByMesh(comp) != None);
+}
+
+final static function class<Hat_StatusEffect_RideablePokemon> GetPokemonStatusEffectByMesh(SkeletalMeshComponent comp)
+{
 	local int i;
 	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
 	if (comp == None || comp.SkeletalMesh == None)
-		return false;
+		return None;
 	PokemonEffects = GetStandardPokemonStatusEffects();
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
 		if (PokemonEffects[i].static.IsPokemonMesh(comp))
-			return true;
+			return PokemonEffects[i];
 	}
 	PokemonEffects = GetSpecialPokemonStatusEffects();
 	for (i = 0; i < PokemonEffects.Length; i++)
 	{
 		if (PokemonEffects[i].static.IsPokemonMesh(comp))
-			return true;
+			return PokemonEffects[i];
 	}
-	return false;
+	return None;
 }
 
 defaultproperties

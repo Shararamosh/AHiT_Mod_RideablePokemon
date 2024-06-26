@@ -85,9 +85,11 @@ static function bool MaintainScooterMesh(Actor InActor, SkeletalMeshComponent In
 	if (InActor == None || InComponent == None || MeshComponent == None)
 		return false;
 	AnimateScooter(MeshComponent);
+	MeshComponent.SetSectionGroup('');
 	MeshComponent.SetPhysicsAsset(GetPokemonPhysicsAsset(MeshComponent.SkeletalMesh));
 	MeshComponent.SetTranslation(default.ScooterTranslation);
 	MeshComponent.SetLightEnvironment(InComponent.LightEnvironment);
+	MeshComponent.SetShadowParent(InComponent);
 	MeshComponent.SetHasPhysicsAssetInstance(MeshComponent.PhysicsAsset != None && default.ScooterPhysicsAssetInstance);
 	f = InComponent.Scale;
 	v = InComponent.Scale3D;
@@ -213,15 +215,15 @@ final static function string GetLocalName()
 
 final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool DoSendMessage, optional bool UseLocalName)
 {
-	local Array<AnimNode> AnimNodes;
-	local Hat_PawnCombat p;
-	local Hat_Player ply;
-	local Hat_StatusEffect_RideablePokemon PokemonStatus;
-	local string s;
-	local int i, j;
 	local bool b;
+	local int i, j;
+	local string s;
+	local Hat_Player ply;
+	local Hat_PawnCombat p;
 	local AnimNodeBlendBase anbb;
+	local Array<AnimNode> AnimNodes;
 	local Hat_StatusEffect_BadgeScooter ScooterStatus;
+	local Hat_StatusEffect_RideablePokemon PokemonStatus;
 	if (UseLocalName)
 		s = GetLocalName();
 	else
@@ -528,14 +530,11 @@ final private simulated function int IterateActorsProperties() //Returns index o
 
 simulated function OnAdded(Actor a)
 {
-	local Hat_Player ply;
 	local int i;
+	local Hat_Player ply;
 	RestoreActorProperties(a);
 	if (!CanRidePokemon(a, false, true, true))
-	{
-		RemoveStatusEffect(a, class'Hat_StatusEffect_BadgeScooter', true);
 		return;
-	}
 	ply = Hat_Player(a);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Squished', true);
 	ply.RemoveStatusEffect(class'Hat_StatusEffect_Shrink', true);
@@ -546,7 +545,6 @@ simulated function OnAdded(Actor a)
 	if (ScooterMeshComp == None)
 	{
 		ply.ClientMessage("Failed to create ScooterMeshComp - "@GetLocalName()@"will be removed.");
-		RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 		return;
 	}
 	if (ScooterAnimNodesName != '')
@@ -562,7 +560,6 @@ simulated function OnAdded(Actor a)
 				if (ply.Mesh.FindAnimSequence(ScooterLoopAnimation) == None)
 				{
 					ply.ClientMessage("Failed to both activate at least one"@ScooterAnimNodesName@"Animation Node and find"@ScooterLoopAnimation@"loop Animation Sequence - "@GetLocalName()@"will be removed.");
-					RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 					return;
 				}
 				if (ScooterIntroAnimation != '')
@@ -571,7 +568,6 @@ simulated function OnAdded(Actor a)
 					if (TimeUntilLoopAnimation <= 0.0)
 					{
 						ply.ClientMessage("Failed to both activate at least one"@ScooterAnimNodesName@"Animation Node and get length for"@ScooterIntroAnimation@"intro Animation Sequence - "@GetLocalName()@"will be removed.");
-						RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 						return;
 					}
 					ply.PlayCustomAnimation(ScooterIntroAnimation);
@@ -586,7 +582,6 @@ simulated function OnAdded(Actor a)
 			else
 			{
 				ply.ClientMessage("Failed to activate at least one"@ScooterAnimNodesName@"Animation Node - "@GetLocalName()@"will be removed.");
-				RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 				return;
 			}
 		}
@@ -596,7 +591,6 @@ simulated function OnAdded(Actor a)
 		if (ply.Mesh.FindAnimSequence(ScooterLoopAnimation) == None)
 		{
 			ply.ClientMessage("Failed to get length for"@ScooterLoopAnimation@"loop Animation Sequence - "@GetLocalName()@"will be removed.");
-			RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 			return;
 		}
 		if (ScooterIntroAnimation != '')
@@ -605,7 +599,6 @@ simulated function OnAdded(Actor a)
 			if (TimeUntilLoopAnimation <= 0.0)
 			{
 				ply.ClientMessage("Failed to get length for"@ScooterIntroAnimation@"intro Animation Sequence - "@GetLocalName()@"will be removed.");
-				RemoveStatusEffect(ply, class'Hat_StatusEffect_BadgeScooter', true);
 				return;
 			}
 			ply.PlayCustomAnimation(ScooterIntroAnimation);
@@ -674,7 +667,7 @@ simulated function bool Update(float delta)
 	local bool ShouldPlayLoopAnimation;
 	i = IterateActorsProperties();
 	ply = Hat_Player(Owner);
-	if (ply == None || ply.Mesh == None || ScooterMeshComp == None)
+	if (ply == None || ply.Mesh == None || ScooterMeshComp == None || ActorsProperties[i].PlayerAnimationType == Type_None)
 	{
 		RemoveStatusEffect(Owner, class'Hat_StatusEffect_BadgeScooter', true);
 		return false;
@@ -788,7 +781,11 @@ simulated function bool Update(float delta)
 
 final static function bool AllowSpeedDustParticle(Vector Velocity, float GroundSpeed, optional bool UseThrottle, optional float Throttle) //Also used to determine whether to play Furret music or not.
 {
-	return (VSizeSq2D(Velocity) > Square(0.5*GroundSpeed) && Abs(Throttle) > 0.1);
+	if (VSizeSq2D(Velocity) <= Square(0.5*GroundSpeed))
+		return false;
+	if (UseThrottle)
+		return (Abs(Throttle) > 0.1);
+	return true;
 }
 
 function bool OnDuck()

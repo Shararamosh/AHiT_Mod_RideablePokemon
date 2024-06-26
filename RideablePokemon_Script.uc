@@ -558,6 +558,7 @@ simulated function bool CleanUpOnlinePlayers(bool IsGamePaused) //Returns true i
 	local int i, j;
 	local Hat_GhostPartyPlayer gpp;
 	local bool ShouldOnlineMusicBeDisabled;
+	local class<Hat_StatusEffect_RideablePokemon> PokemonEffect;
 	ShouldOnlineMusicBeDisabled = true;
 	f = GetFurretMusicListeningRadius();
 	for (i = RideablePokemonGppStates.Length-1; i > -1; i--)
@@ -570,14 +571,16 @@ simulated function bool CleanUpOnlinePlayers(bool IsGamePaused) //Returns true i
 		gpp = Hat_GhostPartyPlayer(RideablePokemonGppStates[i].GhostActor);
 		if (gpp == None)
 			continue;
-		if (gpp.SprintParticle != None)
-			gpp.SprintParticle.SetActive(false);
-		RemoveOnlinePlayerScooterSounds(gpp);
+		PokemonEffect = class'RideablePokemon_OnlinePartyHandler'.static.GetPokemonStatusEffectByMesh(gpp.ScooterMesh);
+		if (PokemonEffect == None)
+			continue;
+		ApplyOnlinePlayerScooterParticles(gpp, PokemonEffect);
+		ApplyOnlinePlayerScooterSounds(gpp, PokemonEffect);
 		if (IsGamePaused)
 			continue;
 		if (!ShouldOnlineMusicBeDisabled || f <= 0.0)
 			continue;
-		if (!class'Hat_StatusEffect_RideableFurret'.static.IsPokemonMesh(gpp.ScooterMesh))
+		if (PokemonEffect != class'Hat_StatusEffect_RideableFurret')
 			continue;
 		if (!class'Hat_StatusEffect_RideablePokemon'.static.AllowSpeedDustParticle(gpp.Velocity, gpp.PlayerVisualClass != None ? gpp.PlayerVisualClass.default.GroundSpeed : class'Hat_Player_HatKid'.default.GroundSpeed))
 			continue;
@@ -648,20 +651,24 @@ simulated function AddGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 simulated function RemoveGppState(Hat_GhostPartyPlayerStateBase PlayerState)
 {
 	local Hat_GhostPartyPlayer gpp;
+	local class<Hat_StatusEffect_RideablePokemon> PokemonEffect;
 	if (PlayerState == None)
 		return;
 	RideablePokemonGppStates.RemoveItem(PlayerState);
 	gpp = Hat_GhostPartyPlayer(PlayerState.GhostActor);
 	if (gpp == None)
 		return;
+	PokemonEffect = class'RideablePokemon_OnlinePartyHandler'.static.GetPokemonStatusEffectByMesh(gpp.ScooterMesh);
 	RestoreScooterMesh(gpp.ScooterMesh, PlayerState.UnreliableState.ScooterIsSubcon);
-	RestoreOnlinePlayerScooterSounds(gpp, PlayerState.UnreliableState.IsOnScooter, PlayerState.UnreliableState.ScooterIsSubcon);
+	RestoreOnlinePlayerScooterParticles(gpp, PokemonEffect, PlayerState.UnreliableState.IsOnScooter, PlayerState.UnreliableState.ScooterIsSubcon);
+	RestoreOnlinePlayerScooterSounds(gpp, PokemonEffect, PlayerState.UnreliableState.IsOnScooter, PlayerState.UnreliableState.ScooterIsSubcon);
 }
 
 simulated function ClearGppStates()
 {
 	local int i;
 	local Hat_GhostPartyPlayer gpp;
+	local class<Hat_StatusEffect_RideablePokemon> PokemonEffect;
 	for (i = 0; i < RideablePokemonGppStates.Length; i++)
 	{
 		if (RideablePokemonGppStates[i] == None)
@@ -669,8 +676,10 @@ simulated function ClearGppStates()
 		gpp = Hat_GhostPartyPlayer(RideablePokemonGppStates[i].GhostActor);
 		if (gpp == None)
 			continue;
+		PokemonEffect = class'RideablePokemon_OnlinePartyHandler'.static.GetPokemonStatusEffectByMesh(gpp.ScooterMesh);
 		RestoreScooterMesh(gpp.ScooterMesh, RideablePokemonGppStates[i].UnreliableState.ScooterIsSubcon);
-		RestoreOnlinePlayerScooterSounds(gpp, RideablePokemonGppStates[i].UnreliableState.IsOnScooter, RideablePokemonGppStates[i].UnreliableState.ScooterIsSubcon);
+		RestoreOnlinePlayerScooterParticles(gpp, PokemonEffect, RideablePokemonGppStates[i].UnreliableState.IsOnScooter, RideablePokemonGppStates[i].UnreliableState.ScooterIsSubcon);
+		RestoreOnlinePlayerScooterSounds(gpp, PokemonEffect, RideablePokemonGppStates[i].UnreliableState.IsOnScooter, RideablePokemonGppStates[i].UnreliableState.ScooterIsSubcon);
 	}
 	RideablePokemonGppStates.Length = 0;
 }
@@ -700,42 +709,212 @@ static function RestoreScooterMesh(SkeletalMeshComponent comp, bool ScooterIsSub
 	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp, true);
 }
 
-static function RestoreOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp, bool IsOnScooter, bool ScooterIsSubcon)
-{
-	local class<Hat_StatusEffect_BadgeScooter> ScooterClass;
-	if (gpp == None || !IsOnScooter)
-		return;
-	ScooterClass = (ScooterIsSubcon ? class'Hat_StatusEffect_BadgeScooter_Subcon' : class'Hat_StatusEffect_BadgeScooter');
-	if (gpp.ScooterEngineSound == None && ScooterClass.default.EngineSound != None)
-	{
-		gpp.ScooterEngineSound = new(gpp) class'AudioComponent'(ScooterClass.default.EngineSound);
-		if (gpp.ScooterEngineSound != None)
-			gpp.AttachComponent(gpp.ScooterEngineSound);
-	}
-	if (gpp.ScooterDrivingSound == None && ScooterClass.default.EngineDrivingSound != None)
-	{
-		gpp.ScooterDrivingSound = new(gpp) class'AudioComponent'(ScooterClass.default.EngineDrivingSound);
-		if (gpp.ScooterDrivingSound != None)
-			gpp.AttachComponent(gpp.ScooterDrivingSound);
-	}
-}
-
-static function RemoveOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp)
+static function ApplyOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_BadgeScooter> ScooterClass)
 {
 	if (gpp == None)
 		return;
-	if (gpp.ScooterEngineSound != None)
+	if (ScooterClass == None || ScooterClass.default.EngineSound == None)
 	{
-		gpp.ScooterEngineSound.Stop();
-		gpp.ScooterEngineSound.DetachFromAny();
-		gpp.ScooterEngineSound = None;
+		if (gpp.ScooterEngineSound != None)
+		{
+			gpp.ScooterEngineSound.Stop();
+			gpp.ScooterEngineSound.DetachFromAny();
+			gpp.ScooterEngineSound = None;
+		}
 	}
-	if (gpp.ScooterDrivingSound != None)
+	else
 	{
-		gpp.ScooterDrivingSound.Stop();
-		gpp.ScooterDrivingSound.DetachFromAny();
-		gpp.ScooterDrivingSound = None;
+		if (gpp.ScooterEngineSound.ObjectArchetype != ScooterClass.default.EngineSound)
+		{
+			gpp.ScooterEngineSound.Stop();
+			gpp.ScooterEngineSound.DetachFromAny();
+			gpp.ScooterEngineSound = None;
+		}
+		if (gpp.ScooterEngineSound == None)
+		{
+			gpp.ScooterEngineSound = new(gpp) ScooterClass.default.EngineSound.Class(ScooterClass.default.EngineSound);
+			if (gpp.ScooterEngineSound != None)
+				gpp.AttachComponent(gpp.ScooterEngineSound);
+		}
 	}
+	if (ScooterClass == None || ScooterClass.default.EngineDrivingSound == None)
+	{
+		if (gpp.ScooterDrivingSound != None)
+		{
+			gpp.ScooterDrivingSound.Stop();
+			gpp.ScooterDrivingSound.DetachFromAny();
+			gpp.ScooterDrivingSound = None;
+		}
+	}
+	else
+	{
+		if (gpp.ScooterDrivingSound.ObjectArchetype != ScooterClass.default.EngineDrivingSound)
+		{
+			gpp.ScooterDrivingSound.Stop();
+			gpp.ScooterDrivingSound.DetachFromAny();
+			gpp.ScooterDrivingSound = None;
+		}
+		if (gpp.ScooterDrivingSound == None)
+		{
+			gpp.ScooterDrivingSound = new(gpp) ScooterClass.default.EngineDrivingSound.Class(ScooterClass.default.EngineDrivingSound);
+			if (gpp.ScooterDrivingSound != None)
+				gpp.AttachComponent(gpp.ScooterDrivingSound);
+		}
+	}
+}
+
+static function ApplyOnlinePlayerScooterParticles(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_BadgeScooter> ScooterClass)
+{
+	local class<Hat_Player> PlayerClass;
+	if (gpp == None)
+		return;
+	PlayerClass = gpp.PlayerVisualClass;
+	if (PlayerClass == None)
+		PlayerClass = class'Hat_Player_HatKid';
+	if (PlayerClass.default.SprintParticle == None)
+	{
+		if (gpp.SprintParticle != None)
+			gpp.SprintParticle.SetActive(false);
+		return;
+	}
+	if (gpp.SprintParticle == None || gpp.SprintParticle.ObjectArchetype != PlayerClass.default.SprintParticle)
+	{
+		if (gpp.SprintParticle != None)
+		{
+			gpp.SprintParticle.SetActive(false);
+			gpp.SprintParticle.DetachFromAny();
+		}
+		gpp.SprintParticle = new(gpp) class'ParticleSystemComponent'(PlayerClass.default.SprintParticle);
+		if (gpp.SprintParticle != None)
+			gpp.AttachComponent(gpp.SprintParticle);
+	}
+	if (gpp.SprintParticle == None)
+		return;
+	if (ScooterClass == None)
+	{
+		if (gpp.SprintParticle.Template != PlayerClass.default.SprintParticle.Template)
+			gpp.SprintParticle.SetTemplate(PlayerClass.default.SprintParticle.Template);
+	}
+	else if (gpp.SprintParticle.Template != ScooterClass.default.SpeedDustParticle)
+		gpp.SprintParticle.SetTemplate(ScooterClass.default.SpeedDustParticle);
+}
+
+static function RestoreOnlinePlayerScooterSounds(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_BadgeScooter> CurrentScooterClass, bool IsOnScooter, bool ScooterIsSubcon)
+{
+	local class<Hat_StatusEffect_BadgeScooter> ScooterClass;
+	if (gpp == None || CurrentScooterClass == None)
+		return;
+	ScooterClass = (ScooterIsSubcon ? class'Hat_StatusEffect_BadgeScooter_Subcon' : class'Hat_StatusEffect_BadgeScooter');
+	if (CurrentScooterClass.default.EngineSound != None)
+	{
+		if (gpp.ScooterEngineSound != None && gpp.ScooterEngineSound.ObjectArchetype == CurrentScooterClass.default.EngineSound)
+		{
+			if (!IsOnScooter || ScooterClass.default.EngineSound == None)
+			{
+				gpp.ScooterEngineSound.Stop();
+				gpp.ScooterEngineSound.DetachFromAny();
+				gpp.ScooterEngineSound = None;
+			}
+			else if (CurrentScooterClass.default.EngineSound != ScooterClass.default.EngineSound)
+			{
+				gpp.ScooterEngineSound.Stop();
+				gpp.ScooterEngineSound.DetachFromAny();
+				gpp.ScooterEngineSound = new(gpp) ScooterClass.default.EngineSound.Class(ScooterClass.default.EngineSound);
+				if (gpp.ScooterEngineSound != None)
+					gpp.AttachComponent(gpp.ScooterEngineSound);
+			}
+		}
+	}
+	else if (gpp.ScooterEngineSound == None || gpp.ScooterEngineSound.ObjectArchetype == None)
+	{
+		if (gpp.ScooterEngineSound != None)
+		{
+			gpp.ScooterEngineSound.Stop();
+			gpp.ScooterEngineSound.DetachFromAny();
+		}
+		if (!IsOnScooter || ScooterClass.default.EngineSound == None)
+			gpp.ScooterEngineSound = None;
+		else
+		{
+			gpp.ScooterEngineSound = new(gpp) ScooterClass.default.EngineSound.Class(ScooterClass.default.EngineSound);
+			if (gpp.ScooterEngineSound != None)
+				gpp.AttachComponent(gpp.ScooterEngineSound);
+		}
+	}
+	if (CurrentScooterClass.default.EngineDrivingSound != None)
+	{
+		if (gpp.ScooterDrivingSound != None && gpp.ScooterDrivingSound.ObjectArchetype == CurrentScooterClass.default.EngineDrivingSound)
+		{
+			if (!IsOnScooter || ScooterClass.default.EngineDrivingSound == None)
+			{
+				gpp.ScooterDrivingSound.Stop();
+				gpp.ScooterDrivingSound.DetachFromAny();
+				gpp.ScooterDrivingSound = None;
+			}
+			else if (CurrentScooterClass.default.EngineDrivingSound != ScooterClass.default.EngineDrivingSound)
+			{
+				gpp.ScooterDrivingSound.Stop();
+				gpp.ScooterDrivingSound.DetachFromAny();
+				gpp.ScooterDrivingSound = new(gpp) ScooterClass.default.EngineDrivingSound.Class(ScooterClass.default.EngineDrivingSound);
+				if (gpp.ScooterDrivingSound != None)
+					gpp.AttachComponent(gpp.ScooterDrivingSound);
+			}
+		}
+	}
+	else if (gpp.ScooterDrivingSound == None || gpp.ScooterDrivingSound.ObjectArchetype == None)
+	{
+		if (gpp.ScooterDrivingSound != None)
+		{
+			gpp.ScooterDrivingSound.Stop();
+			gpp.ScooterDrivingSound.DetachFromAny();
+		}
+		if (!IsOnScooter || ScooterClass.default.EngineDrivingSound == None)
+			gpp.ScooterDrivingSound = None;
+		else
+		{
+			gpp.ScooterDrivingSound = new(gpp) ScooterClass.default.EngineDrivingSound.Class(ScooterClass.default.EngineDrivingSound);
+			if (gpp.ScooterDrivingSound != None)
+				gpp.AttachComponent(gpp.ScooterDrivingSound);
+		}
+	}
+}
+
+static function RestoreOnlinePlayerScooterParticles(Hat_GhostPartyPlayer gpp, class<Hat_StatusEffect_BadgeScooter> CurrentScooterClass, bool IsOnScooter, bool ScooterIsSubcon)
+{
+	local class<Hat_Player> PlayerClass;
+	local class<Hat_StatusEffect_BadgeScooter> ScooterClass;
+	if (gpp == None || CurrentScooterClass == None)
+		return;
+	PlayerClass = gpp.PlayerVisualClass;
+	if (PlayerClass == None)
+		PlayerClass = class'Hat_Player_HatKid';
+	if (PlayerClass.default.SprintParticle == None)
+	{
+		if (gpp.SprintParticle != None)
+			gpp.SprintParticle.SetActive(false);
+		return;
+	}
+	if (gpp.SprintParticle == None || gpp.SprintParticle.ObjectArchetype != PlayerClass.default.SprintParticle)
+	{
+		if (gpp.SprintParticle != None)
+		{
+			gpp.SprintParticle.SetActive(false);
+			gpp.SprintParticle.DetachFromAny();
+		}
+		gpp.SprintParticle = new(gpp) class'ParticleSystemComponent'(PlayerClass.default.SprintParticle);
+		if (gpp.SprintParticle != None)
+			gpp.AttachComponent(gpp.SprintParticle);
+	}
+	if (gpp.SprintParticle == None || gpp.SprintParticle.Template != CurrentScooterClass.default.SpeedDustParticle)
+		return;
+	if (IsOnScooter)
+	{
+		ScooterClass = (ScooterIsSubcon ? class'Hat_StatusEffect_BadgeScooter_Subcon' : class'Hat_StatusEffect_BadgeScooter');
+		if (gpp.SprintParticle.Template != ScooterClass.default.SpeedDustParticle)
+			gpp.SprintParticle.SetTemplate(ScooterClass.default.SpeedDustParticle);
+	}
+	else if (gpp.SprintParticle.Template != PlayerClass.default.SprintParticle.Template)
+		gpp.SprintParticle.SetTemplate(PlayerClass.default.SprintParticle.Template);
 }
 
 static function bool ShowSubtitleForPlayer(PlayerController pc, optional string msg, optional byte r = 255, optional byte g = 255, optional byte b = 255, optional float closeAfter = 5.0, optional Array<KeywordLocalizationInfo> Keywords)

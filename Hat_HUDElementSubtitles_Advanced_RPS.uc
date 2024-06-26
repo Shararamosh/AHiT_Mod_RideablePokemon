@@ -29,6 +29,17 @@ final private simulated function LocalizeSubtitles()
 		LocalizedSubtitles.LocalizedText = Localize(LocalizedSubtitles.SectionName, LocalizedSubtitles.KeyName, LocalizedSubtitles.PackageName);
 }
 
+final static function LocalizeGameButtonKeywords(PlayerController pc, bool full, out string s)
+{
+	local int i;
+	local Hat_PlayerInput_Base inp;
+	if (pc == None)
+		return;
+	inp = Hat_PlayerInput_Base(pc.PlayerInput);
+	for (i = 0; i < class'Hat_BubbleTalker_Compiler'.default.Buttons.Length; i++)
+		s = Repl(s, "[button:"$class'Hat_BubbleTalker_Compiler'.default.Buttons[i].Name$"]", inp != None ? inp.GetGamepadButtonName(class'Hat_BubbleTalker_Compiler'.default.Buttons[i].Bind, full) : string(class'Hat_BubbleTalker_Compiler'.default.Buttons[i].Name), false);
+}
+
 final private simulated function LocalizeKeywords()
 {
 	local int i;
@@ -160,6 +171,7 @@ function bool Render(HUD H)
 	if (H == None || H.Canvas == None)
 		return true;
 	ReplacedText = ApplyKeywordReplacements();
+	LocalizeGameButtonKeywords(H.PlayerOwner, false, ReplacedText);
 	if (ReplacedText == "")
 		return true;
 	H.Canvas.SetDrawColor(SubtitlesColor.R, SubtitlesColor.G, SubtitlesColor.B, SubtitlesColor.A*FClamp(FadeIn, 0.0, 1.0));

@@ -259,13 +259,10 @@ final static function bool DestroyCollisionActor(Actor a)
 	}
 	for (i = 0; i < RemoveList.Length; i++)
 	{
-		if (RemoveList[i] != None)
-		{
-			if (RemoveList[i].Destroy())
-				b = true;
-			else
-				RemoveList[i].ShutDown();
-		}
+		if (RemoveList[i].Destroy())
+			b = true;
+		else
+			RemoveList[i].ShutDown();
 	}
 	RemoveList.Length = 0;
 	return b;
