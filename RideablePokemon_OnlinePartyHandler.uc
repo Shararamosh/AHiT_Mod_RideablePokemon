@@ -127,7 +127,7 @@ final static function DetachOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, class<Ha
 		if (!IsOnScooter)
 		{
 			if (PokemonEffect.default.ExplodeParticle != None && gpp.WorldInfo != None && gpp.WorldInfo.MyEmitterPool != None)
-				gpp.Worldinfo.MyEmitterPool.SpawnEmitter(PokemonEffect.default.ExplodeParticle, gpp.Location);
+				gpp.WorldInfo.MyEmitterPool.SpawnEmitter(PokemonEffect.default.ExplodeParticle, gpp.Location);
 			if (PokemonEffect.default.ExplodeSound != None)
 				gpp.PlaySound(PokemonEffect.default.ExplodeSound);
 			if (gpp.SkeletalMeshComponent != None && gpp.ScooterMesh.IsComponentAttached(gpp.SkeletalMeshComponent))

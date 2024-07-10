@@ -153,52 +153,6 @@ static function MaterialInterface GetActualMaterial(MaterialInterface mat) //Ret
 	return inst;
 }
 
-final static function bool SetMaterialParentToInstance(MeshComponent comp, int i, MaterialInterface NewParent) //Sets MaterialInstance Parent or SetMaterial+InitMaterialInstance. Returns true if transient MaterialInstance was created.
-{
-	local MaterialInstance inst;
-	local MaterialInterface mat;
-	if (i < 0 || NewParent == None || comp == None)
-		return false;
-	mat = GetActualMaterial(NewParent);
-	if (mat == None)
-		return false;
-	switch(mat.GetMaterial()) //Force removing transient MaterialInstance of Invisible and OccludedMaterial.
-	{
-		case Material'HatInTime_Characters.Materials.Invisible':
-		case Material'HatInTime_Characters.Materials.OccludedMaterial':
-			if (comp.GetMaterial(i) != mat)
-				comp.SetMaterial(i, mat);
-			return false;
-		default:
-			break;
-	}
-	if (mat != NewParent) //Applying transient MaterialInstance. Need to copy its parameters. Unfortunately, this will require creating one new cloned MaterialInstance.
-	{
-		inst = MaterialInstance(NewParent);
-		inst = new(comp) inst.Class(inst);
-		if (inst != None) //Successfully cloned target MaterialInstance. It already has all overriding parameters, so we set Editor MaterialInterface as its Parent and then call SetMaterial.
-		{
-			inst.SetParent(mat);
-			comp.SetMaterial(i, inst);
-			return true;
-		}
-	}
-	inst = MaterialInstance(comp.GetMaterial(i));
-	if (inst != None && inst.IsInMapOrTransientPackage())
-	{
-		if (inst.Parent != mat)
-			inst.SetParent(mat);
-		return false;
-	}
-	if (comp.GetMaterial(i) != mat)
-		comp.SetMaterial(i, mat);
-	if (MaterialInstanceConstant(mat) != None)
-		comp.CreateAndSetMaterialInstanceConstant(i);
-	else
-		comp.CreateAndSetMaterialInstanceTimeVarying(i);
-	return true;
-}
-
 static function class<Hat_Collectible_Skin> GetCurrentSkin(Actor a) //Returns current SkinClass used by Player.
 {
 	local Hat_Loadout l;
@@ -227,8 +181,8 @@ static function class<Hat_Collectible_Skin> GetSkinFromLoadout(Hat_Loadout l) //
 
 static function Hat_Loadout GetLoadout(Actor a) //Returns loadout of Player. Input can be Pawn, Hat_PlayerController or Hat_NPC_Player.
 {
-	local Hat_PlayerController hpc;
 	local Hat_NPC_Player npc;
+	local Hat_PlayerController hpc;
 	npc = Hat_NPC_Player(a);
 	if (npc != None)
 		return npc.GetLoadout();

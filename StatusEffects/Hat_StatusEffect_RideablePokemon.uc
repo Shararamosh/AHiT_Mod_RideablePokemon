@@ -106,7 +106,7 @@ static function bool MaintainScooterMesh(Actor InActor, SkeletalMeshComponent In
 final static function InitScooterMeshProperties(Actor a, SkeletalMeshComponent comp, optional bool NoCollision)
 {
 	local WorldInfo wi;
-	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp);
+	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp, true);
 	class'Shara_SkinColors_Tools_Short_RPS'.static.ConditionalInitMaterialInstancesMesh(comp);
 	wi = class'WorldInfo'.static.GetWorldInfo();
 	SetPokemonTimeAfterSpawn(comp, wi != None ? wi.TimeSeconds : 0.0);
@@ -191,19 +191,10 @@ final static function AnimateScooter(SkeletalMeshComponent comp)
 	if (default.ScooterAnimTree != None)
 	{
 		if (comp.AnimTreeTemplate != default.ScooterAnimTree)
-		{
 			comp.SetAnimTreeTemplate(default.ScooterAnimTree);
-			UpdateAnims = true;
-		}
 	}
-	else
-	{
-		if (comp.AnimTreeTemplate != None)
-		{
-			comp.SetAnimTreeTemplate(None);
-			UpdateAnims = true;
-		}
-	}
+	else if (comp.AnimTreeTemplate != None)
+		comp.SetAnimTreeTemplate(None);
 	if (UpdateAnims)
 		comp.UpdateAnimations();
 }
@@ -254,6 +245,12 @@ final static function bool CanRidePokemon(Actor a, bool CheckAnimations, bool Do
 	{
 		if (DoSendMessage)
 			ply.ClientMessage("You can't ride"@s@"because you don't have a Mesh.");
+		return false;
+	}
+	if (ply.VehicleProperties.VehicleModeActive)
+	{
+		if (DoSendMessage)
+			ply.ClientMessage("You can't ride"@s@"because you already have Vehicle mode active.");
 		return false;
 	}
 	if (CheckAnimations)
@@ -381,8 +378,8 @@ final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 final private simulated function int SaveActorProperties(Actor a)
 {
 	local int i;
-	local ActorProperties ap;
 	local Pawn p;
+	local ActorProperties ap;
 	if (a == None)
 		return -1;
 	ap.PropertiesOwner = a;
@@ -445,9 +442,9 @@ final private simulated function RestoreActorsProperties()
 
 final static function bool RestoreSavedActorProperties(ActorProperties ap) //Returns true if any property value was changed.
 {
+	local bool b;
 	local Pawn p;
 	local Hat_Player ply;
-	local bool b;
 	p = Pawn(ap.PropertiesOwner);
 	if (p == None)
 		return false;
@@ -623,12 +620,14 @@ simulated function OnAdded(Actor a)
 	ply.AccelRate = 1500.0;
 	ply.VehicleProperties.VehicleModeActive = true;
 	ply.VehicleProperties.GroundTranslation = 0.0;
+	if (ply.VehicleProperties.VehicleMeshComponent != None)
+		ply.VehicleProperties.VehicleMeshComponent.DetachFromAny();
 	ply.VehicleProperties.VehicleMeshComponent = ScooterMeshComp;
 	ply.SetStepUpOffsetMesh(ScooterMeshComp);
 	ply.ResetMoveSpeed();
 	ply.bCanBeBaseForPawns = true;
 	if (AppearParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
-		ply.Worldinfo.MyEmitterPool.SpawnEmitter(AppearParticle, ply.Location);
+		ply.WorldInfo.MyEmitterPool.SpawnEmitter(AppearParticle, ply.Location);
 	if (SpeedDustParticle != None)
 	{
 		SpeedDustParticleComponent = new class'ParticleSystemComponent';
@@ -660,9 +659,9 @@ simulated function OnAdded(Actor a)
 
 simulated function bool Update(float delta)
 {
-	local float PrevDuration;
 	local int i;
 	local Hat_Player ply;
+	local float PrevDuration;
 	local Hat_PlayerController hpc;
 	local bool ShouldPlayLoopAnimation;
 	i = IterateActorsProperties();
@@ -834,9 +833,7 @@ final private simulated function bool PerformScooterHonk() //Returns false if Ow
 final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name AnimName)
 {
 	local float f;
-	if (gpp == None || gpp.ScooterMesh == None)
-		return;
-	if (!IsPokemonMesh(gpp.ScooterMesh))
+	if (gpp == None || !IsPokemonMesh(gpp.ScooterMesh))
 		return;
 	if (AnimName == '')
 	{
@@ -852,20 +849,30 @@ final static function PerformOnlineScooterHonk(Hat_GhostPartyPlayer gpp, Name An
 		ModifyPokemonFace(gpp.ScooterMesh, true);
 		if (default.HonkParticle != None)
 		{
-			if (gpp.ScooterHornParticle == None && gpp.ScooterMesh.GetSocketByName('Horn') != None)
+			if (gpp.ScooterHornParticle == None)
 			{
-				gpp.ScooterHornParticle = new(gpp) class'ParticleSystemComponent';
-				if (gpp.ScooterHornParticle != None)
+				if (gpp.ScooterMesh.GetSocketByName('Horn') != None)
 				{
-					gpp.ScooterHornParticle.SetTemplate(default.HonkParticle);
-					gpp.ScooterHornParticle.SetTranslation(vect(0.0, 0.0, 0.0));
-					gpp.ScooterHornParticle.CastShadow = true;
-					gpp.ScooterHornParticle.bNoSelfShadow = true;
-					gpp.ScooterMesh.AttachComponentToSocket(gpp.ScooterHornParticle, 'Horn');
-					gpp.ScooterHornParticle.SetActive(true);
+					gpp.ScooterHornParticle = new(gpp) class'ParticleSystemComponent';
+					if (gpp.ScooterHornParticle != None)
+					{
+						gpp.ScooterHornParticle.SetTemplate(default.HonkParticle);
+						gpp.ScooterHornParticle.CastShadow = true;
+						gpp.ScooterHornParticle.bNoSelfShadow = true;
+						gpp.ScooterMesh.AttachComponentToSocket(gpp.ScooterHornParticle, 'Horn');
+					}
 				}
 			}
-			else if (gpp.ScooterHornParticle != None)
+			else
+			{
+				if (gpp.ScooterHornParticle.Template != default.HonkParticle)
+					gpp.ScooterHornParticle.SetTemplate(default.HonkParticle);
+				if (!gpp.ScooterHornParticle.CastShadow)
+					gpp.ScooterHornParticle.CastShadow = true;
+				if (!gpp.ScooterHornParticle.bNoSelfShadow)
+					gpp.ScooterHornParticle.bNoSelfShadow = true;
+			}
+			if (gpp.ScooterHornParticle != None)
 				gpp.ScooterHornParticle.SetActive(true);
 		}
 		gpp.PlaySound(default.HonkSound);
@@ -932,8 +939,8 @@ final static function SetMuddyEffectMesh(MeshComponent comp, bool b)
 {
 	local int i;
 	local MaterialInstance inst;
-	local MaterialInstanceTimeVarying MITV;
 	local InterpCurveFloat Curve;
+	local MaterialInstanceTimeVarying MITV;
 	local LinearColor ColorLight, ColorDark;
 	if (comp == None)
 		return;
@@ -971,6 +978,7 @@ final static function SetAttackEmissionEffectMesh(MeshComponent comp, float Effe
 static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 {
 	local int i;
+	local MaterialInstance inst;
 	local Array<MaterialInterface> mats;
 	if (!IsPokemonMesh(comp))
 		return false;
@@ -978,7 +986,13 @@ static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 	if (mats.Length < 1)
 		return false;
 	for (i = 0; i < Min(comp.GetNumElements(), mats.Length); i++)
-		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, mats[i]);
+	{
+		inst = MaterialInstance(comp.GetMaterial(i));
+		if (inst != None && inst.IsInMapOrTransientPackage())
+			inst.SetParent(mats[i]);
+		else
+			comp.SetMaterial(i, mats[i]);
+	}
 	return true;
 }
 
@@ -986,29 +1000,35 @@ static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
 {
 	if (!IsPokemonMesh(comp))
 		return false;
-	return SetSkeletalMeshDefaultMaterialInstanceParents(comp);
-}
-
-final static function bool SetSkeletalMeshDefaultMaterialInstanceParents(SkeletalMeshComponent comp)
-{
-	local int i;
-	if (comp == None || comp.SkeletalMesh == None)
-		return false;
-	for (i = 0; i < Min(comp.GetNumElements(), comp.SkeletalMesh.Materials.Length); i++)
-	{
-		if (comp.SkeletalMesh.Materials[i] != None)
-			class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(comp, i, comp.SkeletalMesh.Materials[i]);
-	}
+	class'Shara_SkinColors_Tools_Short_RPS'.static.ResetMaterials(comp, true, true);
 	return true;
 }
 
-final static function CopyParentMeshMaterials(MeshComponent ParentMesh, MeshComponent TargetMesh)
+final static function CloneMeshComponentMaterials(MeshComponent compOriginal, MeshComponent compClone)
 {
 	local int i;
-	if (ParentMesh == None || TargetMesh == None)
+	local MaterialInterface mat;
+	local MaterialInstance inst;
+	if (compOriginal == None || compClone == None)
 		return;
-	for (i = 0; i < Min(ParentMesh.GetNumElements(), TargetMesh.GetNumElements()); i++)
-		class'Shara_SkinColors_Tools_Short_RPS'.static.SetMaterialParentToInstance(TargetMesh, i, ParentMesh.GetMaterial(i));
+	for (i = 0; i < compOriginal.Materials.Length; i++)
+	{
+		mat = compOriginal.GetMaterial(i);
+		inst = MaterialInstance(mat);
+		if (inst == None || !inst.IsInMapOrTransientPackage())
+		{
+			compClone.SetMaterial(i, mat);
+			continue;
+		}
+		inst = new(compClone) inst.Class(inst);
+		if (inst == None)
+		{
+			compClone.SetMaterial(i, class'Shara_SkinColors_Tools_Short_RPS'.static.GetActualMaterial(mat));
+			continue;
+		}
+		inst.SetParent(class'Shara_SkinColors_Tools_Short_RPS'.static.GetActualMaterial(mat));
+		compClone.SetMaterial(i, inst);
+	}
 }
 
 simulated function OnRemoved(Actor a)
@@ -1018,13 +1038,10 @@ simulated function OnRemoved(Actor a)
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
-		if (ScooterMeshComp != None && ply.VehicleProperties.VehicleMeshComponent == ScooterMeshComp)
-		{
-			ply.VehicleProperties.VehicleModeActive = false;
-			ply.VehicleProperties.VehicleMeshComponent = None;
-			ply.ResetMoveSpeed();
-		}
+		ply.VehicleProperties.VehicleModeActive = false;
+		ply.VehicleProperties.VehicleMeshComponent = None;
 		ply.SetStepUpOffsetMesh(None);
+		ply.ResetMoveSpeed();
 		if (ply.Mesh != None)
 			ply.AttachComponent(ply.Mesh);
 		if (ExplodeParticle != None && ply.WorldInfo != None && ply.WorldInfo.MyEmitterPool != None)
@@ -1154,9 +1171,9 @@ static function bool ModifyPokemonFace(SkeletalMeshComponent comp, bool DoesScre
 
 final static function bool SetAnimNodesByNameActive(SkeletalMeshComponent comp, Name n, bool b)
 {
-	local Array<AnimNode> AnimNodes;
 	local int i;
 	local bool bb;
+	local Array<AnimNode> AnimNodes;
 	if (n == '')
 		return false;
 	if (comp == None || comp.Animations == None)

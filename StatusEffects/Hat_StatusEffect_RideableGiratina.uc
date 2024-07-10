@@ -45,7 +45,7 @@ static function bool SetPokemonWireframeMaterials(SkeletalMeshComponent comp)
 {
 	local bool b;
 	b = Super.SetPokemonWireframeMaterials(comp);
-	CopyParentMeshMaterials(comp, GetGiratinaAttachment(comp));
+	CloneMeshComponentMaterials(comp, GetGiratinaAttachment(comp));
 	return b;
 }
 
@@ -53,7 +53,7 @@ static function bool SetPokemonStandardMaterials(SkeletalMeshComponent comp)
 {
 	local bool b;
 	b = Super.SetPokemonStandardMaterials(comp);
-	CopyParentMeshMaterials(comp, GetGiratinaAttachment(comp));
+	CloneMeshComponentMaterials(comp, GetGiratinaAttachment(comp));
 	return b;
 }
 //ATTACHMENT FUNCTIONS BEGIN!!!
