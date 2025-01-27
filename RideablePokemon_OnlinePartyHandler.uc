@@ -19,25 +19,23 @@ final static function SendOnlinePartyCommandWithModInstance(string Command, Ride
 	if (Command == "" || ModInstance == None)
 		return;
 	ModInstance.SendOnlinePartyCommand(Command, default.MainChannel, SendingPlayer, Receiver);
-	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/SendOnlinePartyCommandWithModInstance] Sent Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(SendingPlayer)$". Receiver:"@class'RideablePokemon_Script'.static.GetPlayerString(Receiver)$"."$(ModInstance.WorldInfo != None ? " TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$"." : ""));
 }
 
 final static function HandleOnlinePartyCommand(string Command, Name CommandChannel, Hat_GhostPartyPlayerStateBase Sender, RideablePokemon_Script ModInstance)
 {
-	local class<Hat_StatusEffect_RideablePokemon> ReceivedStatus;
 	local string s;
-	if (Sender == None || Command == "" || CommandChannel != default.MainChannel || ModInstance == None)
+	local class<Hat_StatusEffect_RideablePokemon> PokemonEffect;
+	if (Sender == None || CommandChannel != default.MainChannel || ModInstance == None)
 		return;
-	class'RideablePokemon_Script'.static.SendWarningMessage("["$default.Class.Name$"/HandleOnlinePartyCommand] Received Online Party Command:"@Command$". Sender:"@class'RideablePokemon_Script'.static.GetPlayerString(Sender)$"."$(ModInstance.WorldInfo != None ? " TimeSeconds:"@ModInstance.WorldInfo.TimeSeconds$"." : ""));
 	switch(locs(Command))
 	{
 		case "pokemonridestartquery":
 			CondSendRideablePokemon(ModInstance, Sender);
 			break;
 		default:
-			ReceivedStatus = GetPokemonStatusEffectByCommand(Command, s);
-			if (ReceivedStatus != None)
-				DoStuffBasedOnString(Mid(Command, Len(s)), Sender, ReceivedStatus, ModInstance);
+			PokemonEffect = GetPokemonStatusEffectByCommand(Command, s);
+			if (PokemonEffect != None)
+				DoStuffBasedOnString(Mid(Command, Len(s)), Sender, PokemonEffect, ModInstance);
 			break;
 	}
 }
@@ -106,7 +104,7 @@ final static function bool UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer gpp, cla
 		return false;
 	if (gpp.ScooterMesh == None)
 		gpp.ScooterMesh = PokemonEffect.static.CreateScooterMesh(gpp, gpp.SkeletalMeshComponent);
-    else
+	else
 		PokemonEffect.static.MaintainScooterMesh(gpp, gpp.SkeletalMeshComponent, gpp.ScooterMesh);
 	if (gpp.ScooterMesh == None)
 		return false;
@@ -204,13 +202,13 @@ final static function SetOnlinePokemonMuddy(Hat_GhostPartyPlayer gpp, class<Hat_
 		PokemonEffect.static.SetPokemonMuddyEffect(gpp.ScooterMesh, IsMuddy);
 }
 
-final static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, RideablePokemon_Script ModInstance)
+final static function DoStuffBasedOnString(string Command, Hat_GhostPartyPlayerStateBase Sender, class<Hat_StatusEffect_RideablePokemon> PokemonEffect, RideablePokemon_Script ModInstance)
 {
 	local int i;
 	local string s;
 	if (ModInstance == None || Sender == None)
 		return;
-	switch(locs(MinusedCommand))
+	switch(locs(Command))
 	{
 		case "ridestart":
 			if (UpdateOnlinePokemonMesh(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect))
@@ -238,14 +236,14 @@ final static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostParty
 			SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, '');
 			break;
 		default:
-			if (Left(MinusedCommand, 6) ~= "action")
-				SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, Name(Right(MinusedCommand, Len(MinusedCommand)-6)));
-			else if (Left(MinusedCommand, 6) ~= "health")
+			if (Left(Command, 6) ~= "action")
+				SetOnlinePokemonBattleAction(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, Name(Mid(Command, 6)));
+			else if (Left(Command, 6) ~= "health")
 			{
-				s = Mid(6, Len(MinusedCommand)-6);
+				s = Mid(Command, 6);
 				i = InStr(s, "_");
 				if (i > -1)
-					SetOnlinePokemonHealth(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, int(Left(s, i)), Name(Mid(s, i+1, Len(s)-i-1)));
+					SetOnlinePokemonHealth(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, int(Left(s, i)), Name(Mid(s, i+1)));
 				else
 					SetOnlinePokemonHealth(Hat_GhostPartyPlayer(Sender.GhostActor), PokemonEffect, int(s), '');
 			}
@@ -256,7 +254,7 @@ final static function DoStuffBasedOnString(string MinusedCommand, Hat_GhostParty
 final static function HandleHookedOnlinePlayerState(Hat_GhostPartyPlayerStateBase PlayerState, RideablePokemon_Script ModInstance)
 {
 	if (ModInstance == None || PlayerState == None || PlayerState.IsLocalPlayer())
-        return;
+		return;
 	SendOnlinePartyCommandWithModInstance("PokemonRideStartQuery", ModInstance, , PlayerState);
 }
 

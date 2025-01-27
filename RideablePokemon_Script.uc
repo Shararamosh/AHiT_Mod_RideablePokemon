@@ -14,16 +14,10 @@ struct LoadoutItem
 	var LoadoutItem_State ItemState;
 };
 
-enum NotifyType
-{
-	Type_None,
-	Type_Select
-};
-
 var transient private Array<Hat_GhostPartyPlayerStateBase> RideablePokemonGppStates;
 var transient private Hat_MusicNodeBlend_Dynamic FurretMusicTrack;
 var transient private Array<Hat_Player> CurrentPlayers;
-var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, DebugMessages, PokemonSelect, EnableCollision, AllowTimedEventSkins;
+var config int FurretMusic, OnlineFurretMusic, AllowPokemonScaring, PokemonSelect, EnableCollision, AllowTimedEventSkins;
 
 static function bool UpdatePokemonSelectNotifyLevelBit() //Returns true if level bit was less than 1 and subtitle message should be displayed.
 {
@@ -112,122 +106,19 @@ static function bool IsBaseGameClassPackage(Name PackageName)
 	}
 }
 
-static function string GetPlayerString(Object o, optional bool FirstCapital)
-{
-	local Hat_Player ply;
-	local Hat_GhostPartyPlayer gpp;
-	local Hat_GhostPartyPlayerStateBase s;
-	local PlayerController pc;
-	local string SteamID;
-	local int PlayerIndex;
-	if (o == None)
-		return "None";
-	pc = class'Shara_SteamID_Tools_RPS'.static.GetPlayerController(o);
-	if (pc != None)
-	{
-		PlayerIndex = class'Shara_SteamID_Tools_RPS'.static.GetPlayerIndex(pc);
-		if (PlayerIndex < 0)
-		{
-			if (FirstCapital)
-				return "Indexless Local Player"@(pc.Pawn == None ? "None" : GetClassPathName(pc.Pawn.Class));
-			return "indexless Local Player"@(pc.Pawn == None ? "None" : GetClassPathName(pc.Pawn.Class));
-		}
-		return "Local Player"@PlayerIndex+1@(pc.Pawn == None ? "None" : GetClassPathName(pc.Pawn.Class));
-	}
-	ply = class'Shara_SteamID_Tools_RPS'.static.GetPlayerPawn(o);
-	if (ply != None)
-	{
-		if (FirstCapital)
-			return "Fake Local Player"@GetClassPathName(ply.Class);
-		return "fake Local Player"@GetClassPathName(ply.Class);
-	}
-	gpp = Hat_GhostPartyPlayer(o);
-	if (gpp != None)
-	{
-		s = gpp.PlayerState;
-		if (s == None)
-			return "Online Player"@GetClassPathName(gpp.PlayerVisualClass == None ? class'Hat_Player_HatKid' : gpp.PlayerVisualClass)@"without Player State";
-		SteamID = s.GetNetworkingIDString();
-		if (SteamID == "")
-			return "Online Player"@s.SubID+1@GetClassPathName(gpp.PlayerVisualClass == None ? class'Hat_Player_HatKid' : gpp.PlayerVisualClass)@"with destroyed Player State";
-		return "Online Player"@s.SubID+1@GetClassPathName(gpp.PlayerVisualClass == None ? class'Hat_Player_HatKid' : gpp.PlayerVisualClass)@"with Steam ID"@SteamID@"("$s.GetDisplayName()$")";
-	}
-	s = Hat_GhostPartyPlayerStateBase(o);
-	if (s == None)
-	{
-		if (FirstCapital)
-			return "Unknown"@GetClassPathName(o.Class);
-		return "unknown"@GetClassPathName(o.Class);
-	}
-	if (SteamID == "")
-	{
-		if (s.IsLocalPlayer())
-		{
-			if (FirstCapital)
-				return "Destroyed Player State of Local Player"@s.SubID+1;
-			return "destroyed Player State of Local Player"@s.SubID+1;
-		}
-		if (FirstCapital)
-			return "Destroyed Player State of Online Player"@s.SubID+1;
-		return "destroyed Player State of Online Player"@s.SubID+1;
-	}
-	if (s.IsLocalPlayer())
-	{
-		if (FirstCapital)
-			return "Player State of Local Player"@s.SubID+1;
-		return "Player State of Local Player"@s.SubID+1;
-	}
-	return "Player State of Online Player"@s.SubID+1@"with Steam ID"@SteamID@"("$s.GetDisplayName()$")";
-}
-
-static function SendWarningMessage(string Message, optional Object Sender)
-{
-	local WorldInfo wi;
-	local PlayerController pc;
-	if (Message == "")
-		return;
-	if (GetConfigValue(default.Class, 'DebugMessages') == 0)
-		return;
-	if (!IsDev())
-		return;
-	LogMod(Message);
-	pc = class'Shara_SteamID_Tools_RPS'.static.GetPlayerController(Sender);
-	if (pc != None)
-		pc.ClientMessage(Message);
-	else
-	{
-		wi = class'WorldInfo'.static.GetWorldInfo();
-		if (wi != None && wi.Game != None)
-			wi.Game.Broadcast(wi, Message);
-	}
-}
-
-static function SendMessageArray(Array<string> StringArray, optional Object Sender)
-{
-	local int i;
-	local string s;
-	for (i = 0; i < StringArray.Length; i++)
-	{
-		s $= StringArray[i];
-		if (i != StringArray.Length-1)
-			s $= "\n";
-	}
-	SendWarningMessage(s, Sender);
-}
-
 static function RideablePokemon_Script GetModInstance()
 {
-    local RideablePokemon_Script inst;
 	local WorldInfo wi;
+	local RideablePokemon_Script inst;
 	wi = class'WorldInfo'.static.GetWorldInfo();
 	if (wi == None)
 		return None;
-    foreach wi.AllActors(class'RideablePokemon_Script', inst)
+	foreach wi.AllActors(class'RideablePokemon_Script', inst)
 	{
-        if (inst != None)
+		if (inst != None)
 			return inst;
 	}
-    return None;
+	return None;
 }
 
 static function bool IsDev()
@@ -239,16 +130,12 @@ static function bool IsDev()
 	return false;
 }
 
-static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(optional out NotifyType nt)
+static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig()
 {
 	local int n;
 	local Array<class<Hat_StatusEffect_RideablePokemon>> PokemonEffects;
 	PokemonEffects = class'RideablePokemon_OnlinePartyHandler'.static.GetStandardPokemonStatusEffects();
-	n = Clamp(GetConfigValue(default.Class, 'PokemonSelect'), 0, PokemonEffects.Length); //Gotta make sure we won't end up outside Pokemon list.
-	if (UpdatePokemonSelectNotifyLevelBit())
-		nt = Type_Select;
-	else
-		nt = Type_None;
+	n = Clamp(GetConfigValue(default.Class, NameOf(default.PokemonSelect)), 0, PokemonEffects.Length); //Gotta make sure we won't end up outside Pokemon list.
 	if (n == 0)
 		return None; //Otherwise use Pokemon tied to flair.
 	return PokemonEffects[n-1]; //Use Pokedex-sorted list of available Pokemon.
@@ -256,11 +143,10 @@ static function class<Hat_StatusEffect_RideablePokemon> GetPokemonFromConfig(opt
 
 function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect, optional out float OverrideDuration)
 {
-	local class<Hat_StatusEffect_RideablePokemon> PokemonStatus, NewPokemonStatus;
-	local Hat_PawnCombat p;
 	local Hat_Player ply;
-	local NotifyType nt;
+	local Hat_PawnCombat p;
 	local bool IsPredefined;
+	local class<Hat_StatusEffect_RideablePokemon> PokemonStatus, NewPokemonStatus;
 	PokemonStatus = class<Hat_StatusEffect_RideablePokemon>(StatusEffect);
 	if (PokemonStatus == None)
 		return;
@@ -277,8 +163,8 @@ function OnPreStatusEffectAdded(Pawn PawnCombat, out class<Object> StatusEffect,
 	}
 	if (!PokemonStatus.static.IsTiedToFlair() && !PokemonStatus.static.IsDebugOnly())
 	{
-		NewPokemonStatus = GetPokemonFromConfig(nt);
-		if (nt == Type_Select)
+		NewPokemonStatus = GetPokemonFromConfig();
+		if (UpdatePokemonSelectNotifyLevelBit() && NewPokemonStatus == None)
 			ShowSubtitleForPlayer(class'Shara_SteamID_Tools_RPS'.static.GetPawnPlayerController(ply), "RideablePokemon|ConfigNotify|system");
 		if (NewPokemonStatus != None && NewPokemonStatus.static.CanRidePokemon(ply, true, false))
 		{

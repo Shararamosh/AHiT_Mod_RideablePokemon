@@ -188,13 +188,8 @@ final static function AnimateScooter(SkeletalMeshComponent comp)
 			UpdateAnims = true;
 		}
 	}
-	if (default.ScooterAnimTree != None)
-	{
-		if (comp.AnimTreeTemplate != default.ScooterAnimTree)
-			comp.SetAnimTreeTemplate(default.ScooterAnimTree);
-	}
-	else if (comp.AnimTreeTemplate != None)
-		comp.SetAnimTreeTemplate(None);
+	if (comp.AnimTreeTemplate != default.ScooterAnimTree)
+		comp.SetAnimTreeTemplate(default.ScooterAnimTree);
 	if (UpdateAnims)
 		comp.UpdateAnimations();
 }
@@ -351,10 +346,10 @@ final static function bool DoesPlayerFlairSupportThisPokemon(Actor a)
 final static function Hat_Ability_Trigger GetPlayerHat(Actor a)
 {
 	local int i;
-	local Hat_Ability_Trigger HatActor;
 	local Hat_Player ply;
-	local Hat_InventoryManager invm;
 	local Hat_NPC_Player npc;
+	local Hat_InventoryManager invm;
+	local Hat_Ability_Trigger HatActor;
 	ply = Hat_Player(a);
 	if (ply != None)
 	{
@@ -631,22 +626,28 @@ simulated function OnAdded(Actor a)
 	if (SpeedDustParticle != None)
 	{
 		SpeedDustParticleComponent = new class'ParticleSystemComponent';
-		SpeedDustParticleComponent.SetTemplate(SpeedDustParticle);
-		SpeedDustParticleComponent.SetTranslation(vect(-25.0, 0.0, -30.0));
-		SpeedDustParticleComponent.CastShadow = true;
-		SpeedDustParticleComponent.bNoSelfShadow = true;
-		SpeedDustParticleComponent.SetActive(false);
-		ply.AttachComponent(SpeedDustParticleComponent);
+		if (SpeedDustParticleComponent != None)
+		{
+			SpeedDustParticleComponent.SetTemplate(SpeedDustParticle);
+			SpeedDustParticleComponent.SetTranslation(vect(-25.0, 0.0, -30.0));
+			SpeedDustParticleComponent.CastShadow = true;
+			SpeedDustParticleComponent.bNoSelfShadow = true;
+			SpeedDustParticleComponent.SetActive(false);
+			ply.AttachComponent(SpeedDustParticleComponent);
+		}
 	}
 	if (HonkParticle != None && ScooterMeshComp.GetSocketByName('Horn') != None)
 	{
 		HonkParticleComponent = new class'ParticleSystemComponent';
-		HonkParticleComponent.SetTemplate(HonkParticle);
-		HonkParticleComponent.SetTranslation(vect(0.0, 0.0, 0.0));
-		HonkParticleComponent.CastShadow = true;
-		HonkParticleComponent.bNoSelfShadow = true;
-		HonkParticleComponent.SetActive(false);
-		ScooterMeshComp.AttachComponentToSocket(HonkParticleComponent, 'Horn');
+		if (HonkParticleComponent != None)
+		{
+			HonkParticleComponent.SetTemplate(HonkParticle);
+			HonkParticleComponent.SetTranslation(vect(0.0, 0.0, 0.0));
+			HonkParticleComponent.CastShadow = true;
+			HonkParticleComponent.bNoSelfShadow = true;
+			HonkParticleComponent.SetActive(false);
+			ScooterMeshComp.AttachComponentToSocket(HonkParticleComponent, 'Horn');
+		}
 	}
 	if (EngineSound != None)
 		ply.AttachComponent(EngineSound);

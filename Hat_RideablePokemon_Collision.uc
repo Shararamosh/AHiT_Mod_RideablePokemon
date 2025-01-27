@@ -16,32 +16,14 @@ final static function bool IsCollisionEnabled()
 	return class'RideablePokemon_Script'.static.IsCollisionEnabled();
 }
 
-final static function string GetPlayerString(Object o, optional bool FirstCapital)
-{
-	return class'RideablePokemon_Script'.static.GetPlayerString(o, FirstCapital);
-}
-
-final static function SendWarningMessage(string Message, optional Actor Sender)
-{
-	class'RideablePokemon_Script'.static.SendWarningMessage(Message, Sender);
-}
-
-final static function SendMessageArray(Array<string> StringArray, optional Actor Sender)
-{
-	class'RideablePokemon_Script'.static.SendMessageArray(StringArray, Sender);
-}
 //REFERENCES TO OTHER CLASSES FUNCTIONS END!!!
-final private simulated function bool ConditionalDestroy(string FunctionName)
+final private simulated function bool ConditionalDestroy()
 {
-	if (Hat_GhostPartyPlayer(Owner) == None)
-	{
-		if (FunctionName != "")
-			SendWarningMessage("["$self.Name$"/"$FunctionName$"] Warning: Pokemon Helper will be destroyed as it has no valid Owner. Owner:"@GetPlayerString(Owner)$".");
-		if (!Destroy())
-			ShutDown();
-		return true;
-	}
-	return false;
+	if (Hat_GhostPartyPlayer(Owner) != None)
+		return false;
+	if (!Destroy())
+		ShutDown();
+	return true;
 }
 
 final private simulated function ApplyOwnerCollisionProperties(bool EnableCollision) //Executed in SetOwnerAsBase. Maintaining blocking collision on Owner and restoring collision in case ownership changed.
@@ -61,7 +43,6 @@ final private simulated function ApplyOwnerCollisionProperties(bool EnableCollis
 		acp.bBlockActors = Owner.bBlockActors;
 		acp.bBlockPawns = Owner.bBlockPawns;
 		ActorsCollisionProperties.AddItem(acp); //Saving Owner's Collision Properties while also removing non-Owner's ones.
-		SendWarningMessage("["$self.Name$"/ApplyOwnerCollisionProperties] Saved new Collision Properties for"@GetPlayerString(Owner)$": bCollideActors:"@acp.bCollideActors$", bBlockActors:"@acp.bBlockActors$", bBlockPawns:"@acp.bBlockPawns$".");
 	}
 	if (!Owner.bCollideActors || !Owner.bBlockActors)
 		Owner.SetCollision(true, true, Owner.bIgnoreEncroachers);
@@ -129,28 +110,21 @@ final static function bool RestoreSavedActorCollisionProperties(ActorCollisionPr
 
 simulated event PreBeginPlay()
 {
-	if (ConditionalDestroy("PreBeginPlay"))
+	if (ConditionalDestroy())
 		return;
 	if (Location != Owner.Location)
-	{
-		if (!SetLocation(Owner.Location))
-			SendWarningMessage("["$self.Name$"/PreBeginPlay] Failed to move Pokemon Helper to"@Owner.Location$".", Owner);
-	}
+		SetLocation(Owner.Location);
 	if (Rotation != Owner.Rotation)
-	{
-		if (!SetRotation(Owner.Rotation))
-			SendWarningMessage("["$self.Name$"/PreBeginPlay] Failed to rotate Pokemon Helper to"@Owner.Rotation$".", Owner);
-	}
+		SetRotation(Owner.Rotation);
 	if (Base != Owner)
 		SetBase(Owner);
 	ModifyOwnerProperties();
 	Super.PreBeginPlay();
-	SendWarningMessage("["$self.Name$"/PreBeginPlay] Pokemon Helper is spawned for"@GetPlayerString(Owner)$".", Owner);
 }
 
 simulated event PostBeginPlay()
 {
-	if (ConditionalDestroy("PostBeginPlay"))
+	if (ConditionalDestroy())
 		return;
 	ModifyOwnerProperties();
 }
@@ -158,25 +132,17 @@ simulated event PostBeginPlay()
 simulated event Destroyed()
 {
 	RestoreActorsCollisionProperties();
-	if (Owner != None)
-		SendWarningMessage("["$self.Name$"/Destroyed] Pokemon Helper is destroyed for"@GetPlayerString(Owner)$".", Owner);
-	else
-		SendWarningMessage("["$self.Name$"/Destroyed] Pokemon Helper is destroyed.");
 }
 
 simulated event ShutDown()
 {
 	RestoreActorsCollisionProperties();
 	Super.ShutDown();
-	if (Owner != None)
-		SendWarningMessage("["$self.Name$"/ShutDown] Pokemon Helper is shut down for"@GetPlayerString(Owner)$".", Owner);
-	else
-		SendWarningMessage("["$self.Name$"/ShutDown] Pokemon Helper is shut down.");
 }
 
 simulated event Tick(float DeltaTime)
 {
-	if (ConditionalDestroy("Tick"))
+	if (ConditionalDestroy())
 		return;
 	ModifyOwnerProperties();
 }
@@ -203,17 +169,9 @@ final static function Hat_RideablePokemon_Collision SpawnOrGetCollisionActor(Act
 	if (Hat_GhostPartyPlayer(a) == None)
 		return None;
 	CollisionActor = GetCollisionActor(a);
-	if (CollisionActor == None)
-	{
-		CollisionActor = a.Spawn(class'Hat_RideablePokemon_Collision', a, , a.Location, a.Rotation, , true);
-		if (CollisionActor != None)
-			SendWarningMessage("[Hat_RideablePokemon_Collision/SpawnOrGetCollisionActor] Spawned Pokemon Helper for"@GetPlayerString(a)$".", a);
-		else
-			SendWarningMessage("[Hat_RideablePokemon_Collision/SpawnOrGetCollisionActor] Failed to spawn Pokemon Helper for"@GetPlayerString(a)$".", a);
-	}
-	else
-		SendWarningMessage("[Hat_RideablePokemon_Collision/SpawnOrGetCollisionActor] Got Pokemon Helper for"@GetPlayerString(a)$".", a);
-	return CollisionActor;
+	if (CollisionActor != None)
+		return CollisionActor;
+	return a.Spawn(class'Hat_RideablePokemon_Collision', a, , a.Location, a.Rotation, , true);
 }
 
 final static function Hat_RideablePokemon_Collision GetCollisionActor(Actor a)

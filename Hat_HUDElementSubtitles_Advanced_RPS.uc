@@ -166,7 +166,7 @@ function bool Tick(HUD H, float d)
 function bool Render(HUD H)
 {
 	local string ReplacedText;
-    if (!Super.Render(H))
+	if (!Super.Render(H))
 		return false;
 	if (H == None || H.Canvas == None)
 		return true;
@@ -177,7 +177,7 @@ function bool Render(HUD H)
 	H.Canvas.SetDrawColor(SubtitlesColor.R, SubtitlesColor.G, SubtitlesColor.B, SubtitlesColor.A*FClamp(FadeIn, 0.0, 1.0));
 	H.Canvas.Font = class'Hat_FontInfo'.static.GetDefaultFont(ReplacedText);
 	DrawBorderedText(H.Canvas, ReplacedText, H.Canvas.ClipX*0.5, H.Canvas.ClipY*0.88, H.Canvas.ClipX*0.00035, true, TextAlign_Center);
-    return true;
+	return true;
 }
 
 final static function bool IsCorrectByte(string s) //Checks if the length is exactly 3 symbols and each symbol is a 0-9 number and at the end they form number from 0 to 255.
